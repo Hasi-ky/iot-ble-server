@@ -15,7 +15,7 @@ require (
 )
 
 require (
-	github.com/BurntSushi/toml v0.3.1 // indirect
+	github.com/BurntSushi/toml v1.2.0 // indirect
 	github.com/aquasecurity/libbpfgo v0.1.2-0.20210708203834-4928d36fafac // indirect
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
 	github.com/cilium/ebpf v0.7.0 // indirect
@@ -26,7 +26,7 @@ require (
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
 	github.com/go-delve/delve v1.9.1 // indirect
 	github.com/go-delve/liner v1.2.3-0.20220127212407-d32d89dd2a5d // indirect
-	github.com/google/go-cmp v0.5.5 // indirect
+	github.com/google/go-cmp v0.5.8 // indirect
 	github.com/google/go-dap v0.6.0 // indirect
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
@@ -52,15 +52,18 @@ require (
 	go.opentelemetry.io/otel/trace v0.20.0 // indirect
 	go.starlark.net v0.0.0-20220816155156-cfacd8902214 // indirect
 	golang.org/x/arch v0.0.0-20190927153633-4e8777c89be4 // indirect
+	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e // indirect
+	golang.org/x/exp/typeparams v0.0.0-20220722155223-a9213eeb770e // indirect
 	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect
-	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
+	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4 // indirect
 	golang.org/x/sys v0.0.0-20220811171246-fbc7d0a398ab // indirect
 	golang.org/x/text v0.3.7 // indirect
-	golang.org/x/tools v0.1.11 // indirect
-	golang.org/x/tools/gopls v0.6.4 // indirect
+	golang.org/x/tools v0.1.13-0.20220908144252-ce397412b6a4 // indirect
+	golang.org/x/tools/gopls v0.9.5 // indirect
+	golang.org/x/vuln v0.0.0-20220901221904-62b0186a1058 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	gopkg.in/ini.v1 v1.51.0 // indirect
-	honnef.co/go/tools v0.0.1-2020.1.6 // indirect
-	mvdan.cc/gofumpt v0.1.0 // indirect
-	mvdan.cc/xurls/v2 v2.2.0 // indirect
+	honnef.co/go/tools v0.3.2 // indirect
+	mvdan.cc/gofumpt v0.3.1 // indirect
+	mvdan.cc/xurls/v2 v2.4.0 // indirect
 )
