@@ -1,0 +1,5 @@
+package packets
+
+func EncodeConnMsg()  {
+	
+}
