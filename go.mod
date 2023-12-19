@@ -31,6 +31,7 @@ require (
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
+	github.com/jinzhu/gorm v1.9.16
 	github.com/magiconair/properties v1.8.1 // indirect
 	github.com/mattn/go-colorable v0.0.9 // indirect
 	github.com/mattn/go-isatty v0.0.3 // indirect
@@ -63,7 +64,20 @@ require (
 	golang.org/x/vuln v0.0.0-20220901221904-62b0186a1058 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	gopkg.in/ini.v1 v1.51.0 // indirect
+	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	honnef.co/go/tools v0.3.2 // indirect
 	mvdan.cc/gofumpt v0.3.1 // indirect
 	mvdan.cc/xurls/v2 v2.4.0 // indirect
+)
+
+require (
+	github.com/gomodule/redigo v1.8.9
+	github.com/jinzhu/inflection v1.0.0 // indirect
+	github.com/letsfire/redigo v1.0.1
+)
+
+require (
+	github.com/go-redis/redis v6.15.9+incompatible
+	github.com/letsfire/redisc v1.1.3 // indirect
+	github.com/streamrail/concurrent-map v0.0.0-20160823150647-8bf1e9bacbf6
 )

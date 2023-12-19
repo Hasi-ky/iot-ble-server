@@ -1,9 +1,11 @@
 # Configuration example.
 [general]
-log_file = "/workspace/logs/iot-ble-server"
+log_file = "../../workspace/logs/iot-ble-server"
 log_rotationTime = 168
 log_level = 4
 use_redis = true
+local_host = "0.0.0.0"
+bind_port = 3502
 
 # Http server settings.
 [http_server]

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"iot-ble-server/global/globallogger"
 	"iot-ble-server/internal/api"
 	"iot-ble-server/internal/bleudp"
 	"iot-ble-server/internal/config"
@@ -59,6 +60,7 @@ func run(cmd *cobra.Command, args []string) error {
 }
 
 func setLogLevel() error {
+	globallogger.Init()
 	log.SetLevel(log.Level(uint8(config.C.General.LogLevel)))
 	return nil
 }
@@ -72,7 +74,6 @@ func setServices() error {
 	packets.SetServices()
 	return nil
 }
-
 func setCharacteristics() error {
 	packets.SetCharacteristics()
 	return nil

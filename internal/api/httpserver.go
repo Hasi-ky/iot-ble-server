@@ -1,9 +1,11 @@
 package api
 
-import log "github.com/sirupsen/logrus"
+import (
+	"iot-ble-server/global/globallogger"
+)
 
 func Start()  error {
-	log.Info("start http server")
+	globallogger.Log.Infoln("start http server")
 
 	return nil
 }

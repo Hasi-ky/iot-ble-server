@@ -2,13 +2,14 @@ package cmd
 
 import (
 	"bytes"
-	"github.com/go-redis/redis/v8"
-	"github.com/spf13/viper"
 	"io/ioutil"
 	"iot-ble-server/internal/config"
 	"os"
 	"reflect"
 	"strings"
+
+	"github.com/go-redis/redis/v8"
+	"github.com/spf13/viper"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -26,15 +27,14 @@ func init() {
 	cobra.OnInitialize(initConfig)
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "path to configuration file (optional)")
 	rootCmd.PersistentFlags().Int("log-level", 4, "debug=5, info=4, error=2, fatal=1, panic=0")
-
 	// bind flag to config vars
 	viper.BindPFlag("general.log_level", rootCmd.PersistentFlags().Lookup("log-level"))
 
-	// defaults
+	// defaults 
 	rootCmd.AddCommand(configCmd)
 }
 
-// Execute executes the root command.
+ 
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
 		log.Fatal(err)
@@ -60,9 +60,9 @@ func initConfig() {
 		if err := viper.ReadInConfig(); err != nil {
 			switch err.(type) {
 			case viper.ConfigFileNotFoundError:
-				log.Warning("No configuration file found, using defaults.")
+				log.Warnln("No configuration file found, using defaults.")
 			default:
-				log.WithError(err).Fatal("read configuration file error")
+				log.WithError(err).Fatalln("read configuration file error")
 			}
 		}
 	}
@@ -70,7 +70,7 @@ func initConfig() {
 	for _, pair := range os.Environ() {
 		d := strings.SplitN(pair, "=", 2)
 		if strings.Contains(d[0], ".") {
-			log.Warning("Using dots in env variable is illegal and deprecated. Please use double underscore `__` for: ", d[0])
+			log.Warnln("Using dots in env variable is illegal and deprecated. Please use double underscore `__` for: ", d[0])
 			underscoreName := strings.ReplaceAll(d[0], ".", "__")
 			// Set only when the underscore version doesn't already exist.
 			if _, exists := os.LookupEnv(underscoreName); !exists {

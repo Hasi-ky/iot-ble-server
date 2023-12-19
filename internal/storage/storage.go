@@ -3,12 +3,16 @@ package storage
 import (
 	"context"
 	"crypto/tls"
+	"time"
+
 	"github.com/go-redis/redis/v8"
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	"time"
+	cmap "github.com/streamrail/concurrent-map"
 
+	"iot-ble-server/global/globalmemo"
+	"iot-ble-server/global/globalredis"
 	"iot-ble-server/internal/config"
 )
 
@@ -67,11 +71,13 @@ func Setup(c config.Config) error {
 	d.SetMaxOpenConns(c.PostgreSQL.MaxOpenConnections)
 	d.SetMaxIdleConns(c.PostgreSQL.MaxIdleConnections)
 	go pgsqlKeepAlive(d)
-
+	globalredis.RedisCache = RedisClient()
+	globalmemo.MemoCacheDev = cmap.New()
+	globalmemo.MemoCacheGw = cmap.New()
 	return nil
 }
 
-func redisKeepAlive()  {
+func redisKeepAlive() {
 	log.Info("redis keep alive")
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
@@ -88,7 +94,7 @@ func redisKeepAlive()  {
 	}
 }
 
-func pgsqlKeepAlive(db *sqlx.DB)  {
+func pgsqlKeepAlive(db *sqlx.DB) {
 	log.Info("psql keep alive")
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()

@@ -1,35 +1,35 @@
 package packets
 
-type ErrorCode uint8
+type ErrorCode string
 
 const (
-	Success          ErrorCode = 0x00
-	UnrecognizedVer  ErrorCode = 0x01
-	UnrecognizedType ErrorCode = 0x02
-	ErrorFormat      ErrorCode = 0x03
-	ConnFailed       ErrorCode = 0x04
-	NoResponse       ErrorCode = 0x05
-	UnsupportedEnc   ErrorCode = 0x06
-	DecFailed        ErrorCode = 0x07
-	PwdLenErr        ErrorCode = 0x08
-	InvChar          ErrorCode = 0x09
-	InvVer           ErrorCode = 0x0A
-	IsfGatewayRes    ErrorCode = 0x0B
-	IsfDeviceRes     ErrorCode = 0x0C
-	TunnelDisc       ErrorCode = 0x0D
-	NoNeighbor       ErrorCode = 0x0E
-	Busy             ErrorCode = 0x0F
-	DeviceNoResp     ErrorCode = 0x10
-	DeviceDisc       ErrorCode = 0x11
-	EstConnFailed    ErrorCode = 0x12
-	InvUUID          ErrorCode = 0x13
-	NoReadPer        ErrorCode = 0x14
-	NoWritePer       ErrorCode = 0x15
-	NoChar           ErrorCode = 0x16
-	Timeout          ErrorCode = 0x17
-	Other            ErrorCode = 0x18
-	InvNeighbor      ErrorCode = 0x19
-	Unknown          ErrorCode = 0xff
+	Success          ErrorCode = "0000"
+	UnrecognizedVer  ErrorCode = "0001"
+	UnrecognizedType ErrorCode = "0002"
+	ErrorFormat      ErrorCode = "0003"
+	ConnFailed       ErrorCode = "0004"
+	NoResponse       ErrorCode = "0005"
+	UnsupportedEnc   ErrorCode = "0006"
+	DecFailed        ErrorCode = "0007"
+	PwdLenErr        ErrorCode = "0008"
+	InvChar          ErrorCode = "0009"
+	InvVer           ErrorCode = "000A"
+	IsfGatewayRes    ErrorCode = "000B"
+	IsfDeviceRes     ErrorCode = "000C"
+	TunnelDisc       ErrorCode = "000D"
+	NoNeighbor       ErrorCode = "000E"
+	Busy             ErrorCode = "000F"
+	DeviceNoResp     ErrorCode = "0010"
+	DeviceDisc       ErrorCode = "0011"
+	EstConnFailed    ErrorCode = "0012"
+	InvUUID          ErrorCode = "0013"
+	NoReadPer        ErrorCode = "0014"
+	NoWritePer       ErrorCode = "0015"
+	NoChar           ErrorCode = "0016"
+	Timeout          ErrorCode = "0017"
+	Other            ErrorCode = "0018"
+	InvNeighbor      ErrorCode = "0019"
+	Unknown          ErrorCode = "00ff"
 )
 
 type Result string

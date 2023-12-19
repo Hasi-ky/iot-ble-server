@@ -1,9 +1,12 @@
 package device
 
-import log "github.com/sirupsen/logrus"
+import (
+	"iot-ble-server/global/globallogger"
+
+)
 
 func KeepAlive() error {
-	log.Info("start device keep alive")
+	globallogger.Log.Infoln("start device keep alive")
 
 	return nil
 }
