@@ -23,7 +23,7 @@ func run(cmd *cobra.Command, args []string) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	tasks := []func() error{
+	tasks := []func(context.Context) error{
 		setLogLevel,
 		setServices,
 		setCharacteristics,
@@ -36,7 +36,7 @@ func run(cmd *cobra.Command, args []string) error {
 	}
 
 	for _, t := range tasks {
-		if err := t(); err != nil {
+		if err := t(ctx); err != nil {
 			log.Fatal(err)
 		}
 	}
@@ -59,54 +59,54 @@ func run(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func setLogLevel() error {
+func setLogLevel(ctx context.Context) error {
 	globallogger.Init()
 	log.SetLevel(log.Level(uint8(config.C.General.LogLevel)))
 	return nil
 }
 
-func setDescriptors() error {
+func setDescriptors(ctx context.Context) error {
 	packets.SetDescriptors()
 	return nil
 }
 
-func setServices() error {
+func setServices(ctx context.Context) error {
 	packets.SetServices()
 	return nil
 }
-func setCharacteristics() error {
+func setCharacteristics(ctx context.Context) error {
 	packets.SetCharacteristics()
 	return nil
 }
 
-func printStartMessage() error {
+func printStartMessage(ctx context.Context) error {
 	log.Info("starting IOT BLE Server")
 	return nil
 }
 
-func setupStorage() error {
-	if err := storage.Setup(config.C); err != nil {
+func setupStorage(ctx context.Context) error {
+	if err := storage.Setup(ctx, config.C); err != nil {
 		return errors.Wrap(err, "setup storage error")
 	}
 
 	return nil
 }
 
-func startBleUdp() error {
-	if err := bleudp.Start(); err != nil {
+func startBleUdp(ctx context.Context) error {
+	if err := bleudp.Start(ctx); err != nil {
 		return errors.Wrap(err, "start ble udp error")
 	}
 	return nil
 }
 
-func startHttpServer() error {
+func startHttpServer(ctx context.Context) error {
 	if err := api.Start(); err != nil {
 		return errors.Wrap(err, "start http server error")
 	}
 	return nil
 }
 
-func startDevKeepAlive() error {
+func startDevKeepAlive(ctx context.Context) error {
 	if err := device.KeepAlive(); err != nil {
 		return errors.Wrap(err, "start devices keep alive error")
 	}

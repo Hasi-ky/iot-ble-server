@@ -5,9 +5,9 @@ import (
 	"crypto/tls"
 	"time"
 
-	"github.com/go-redis/redis/v8"
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
+	"github.com/redis/go-redis/v9"
 	log "github.com/sirupsen/logrus"
 	cmap "github.com/streamrail/concurrent-map"
 
@@ -16,22 +16,20 @@ import (
 	"iot-ble-server/internal/config"
 )
 
-func Setup(c config.Config) error {
-	log.Info("storage: setting up storage package")
+func Setup(ctx context.Context, c config.Config) error {
+	log.Info("<storage Setup>: setting up storage package")
 
 	if c.General.UseRedis {
-		log.Info("storage: setting up Redis client")
+		log.Info("<storage Setup>: setting up Redis client")
 		if len(c.Redis.Servers) == 0 {
 			return errors.New("at least one redis server must be configured")
 		}
-
 		var tlsConfig *tls.Config
 		if c.Redis.TLSEnabled {
 			tlsConfig = &tls.Config{
 				InsecureSkipVerify: true,
 			}
 		}
-
 		if c.Redis.Cluster {
 			redisClient = redis.NewClusterClient(&redis.ClusterOptions{
 				Addrs:     c.Redis.Servers,
@@ -58,55 +56,57 @@ func Setup(c config.Config) error {
 				TLSConfig: tlsConfig,
 			})
 		}
-
 		// Redis keep alive
-		go redisKeepAlive()
+		go redisKeepAlive(ctx)
 	}
 
-	log.Info("storage: connecting to PostgreSQL database")
+	log.Info("<storage Setup>: connecting to PostgreSQL database")
 	d, err := sqlx.Open("postgres", c.PostgreSQL.DSN)
+	SetDB(&DBLogger{DB: d})
 	if err != nil {
-		return errors.Wrap(err, "storage: PostgreSQL connection error")
+		return errors.Wrap(err, "<storage Setup>: PostgreSQL connection error")
 	}
 	d.SetMaxOpenConns(c.PostgreSQL.MaxOpenConnections)
 	d.SetMaxIdleConns(c.PostgreSQL.MaxIdleConnections)
-	go pgsqlKeepAlive(d)
+	go pgsqlKeepAlive(ctx, d)
 	globalredis.RedisCache = RedisClient()
 	globalmemo.MemoCacheDev = cmap.New()
 	globalmemo.MemoCacheGw = cmap.New()
+	createTables()
 	return nil
 }
 
-func redisKeepAlive() {
-	log.Info("redis keep alive")
+func redisKeepAlive(ctx context.Context) {
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
-
 	for {
 		select {
 		case <-ticker.C:
 			if err := redisClient.Ping(context.Background()).Err(); err != nil {
-				log.WithError(err).Warning("storage: ping Redis error, will retry in 30s")
+				log.WithError(err).Warning("<redisKeepAlive>: ping Redis error, will retry in 30s")
 			} else {
-				log.Info("storage: ping Redis success")
+				log.Info("<redisKeepAlive>: ping Redis success")
 			}
+		case <-ctx.Done():
+			return
 		}
 	}
 }
 
-func pgsqlKeepAlive(db *sqlx.DB) {
+func pgsqlKeepAlive(ctx context.Context, db *sqlx.DB) {
 	log.Info("psql keep alive")
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
-
 	for {
 		select {
 		case <-ticker.C:
 			if err := db.Ping(); err != nil {
-				log.WithError(err).Warning("storage: ping PostgreSQL database error, will retry in 30s")
+				log.WithError(err).Warning("<pgsqlKeepAlive>: ping PostgreSQL database error, will retry in 30s")
 			} else {
-				log.Info("storage: ping PostgreSQL database success")
+				log.Info("<pgsqlKeepAlive>: ping PostgreSQL database success")
 			}
+		case <-ctx.Done():
+			return
 		}
 	}
 }

@@ -43,7 +43,7 @@ func CreateUDPSocket(bindPort int) ServiceSocket {
 	}
 	udpServer.UDPAddr = udpAddr
 	udpServer.UDPConn = conn
-	globallogger.Log.Errorf("CreateUDPSocket success: %+v", udpServer)
+	globallogger.Log.Infof("CreateUDPSocket success: %+v", udpServer)
 	return udpServer
 }
 

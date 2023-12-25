@@ -4,13 +4,14 @@ import (
 	"iot-ble-server/dgram"
 )
 
-//UDP packets
+//UDP packets `PendFrame` 期待帧 | `PendCtrl` 期待编码格式 |
 type JsonUdpInfo struct {
-	MessageHeader    MessageHeader
-	MessageBody      MessageBody
-	MessageAppHeader MessageAppHeader
-	MessageAppBody   MessageAppBody
-	Rinfo            dgram.RInfo
+	MessageHeader       MessageHeader
+	MessageBody         MessageBody
+	MessageAppHeader    MessageAppHeader
+	MessageAppBody      MessageAppBody
+	Rinfo               dgram.RInfo
+	PendFrame, PendCtrl int
 }
 
 type MessageType struct {
@@ -20,15 +21,15 @@ type MessageType struct {
 
 //upStream
 type UpMsg struct {
-	WgHelloEvent   IOTMsgType
-	ScanRespMsg    IOTMsgType
-	ConnectRespMsg IOTMsgType
+	WgHelloEvent   string
+	ScanRespMsg    string
+	ConnectRespMsg string
 }
 
 //downStream
 type DownMsg struct {
-	ScanMsgReq IOTMsgType
-	ConnectMsg IOTMsgType
+	ScanMsgReq string
+	ConnectMsg string
 }
 
 // version | length | sn | type | opType
@@ -37,7 +38,7 @@ type MessageHeader struct {
 	LinkMessageLength string
 	LinkMsgFrameSN    string
 	LinkMsgType       string
-	OpType            OpType
+	OpType            string
 }
 
 //| gwMac | moduleID |
@@ -53,66 +54,68 @@ type MessageAppHeader struct {
 	CtrlField  string
 	FragOffset string
 	Type       string
-	OpType     OpType
+	OpType     string
 }
 
 // errorCode | respSN | TLV
 type MessageAppBody struct {
-	ErrorCode    ErrorCode
-	RespondFrame uint32
+	ErrorCode    string
+	RespondFrame string
 	TLV          TLV
 }
 
 //appmsg payload
 type TLV struct {
 	TLVMsgType string
-	TLVLen     uint16
+	TLVLen     string
 	TLVPayload TLVFeature
 }
 
 //tlv message content
 type TLVFeature struct {
-	DevMac          MAC
-	ErrorCode       ErrorCode
+	DevMac          string
+	ErrorCode       string
 	UUID            string
 	MajorID         string
 	MinorID         string
-	MeasurePower    int8
-	RSSI            int8
+	MeasurePower    string
+	RSSI            string
 	TimeStamp       string
-	ReserveOne      uint8
-	ReserveTwo      uint8
-	ReserveThree    uint16
-	AddrType        uint8
-	OpType          uint8
-	ADType          uint8
-	ScanType        uint8
-	ScanStatus      uint8
-	ScanAble        uint8
-	ScanPhys        uint8
-	ScanInterval    uint16
-	ScanWindow      uint16
-	ScanTimeout     uint16
-	ConnStatus      uint8
-	ServiceHandle   uint16
-	CharHandle      uint16
-	ValueHandle     uint16
-	CCCDHandle      uint16
-	StartHandle     uint16
-	EndHandle       uint16
-	ConnHandle      uint16
-	DisConnReason   uint16
-	FeatureHandle   uint16 //特征handle
-	FeatureSum      uint16
-	FeatureCfg      uint8
-	ConnInterval    uint16
-	ConnLatency     uint16
-	ConnTimeout     uint16
-	MTUSize         uint16
-	ServiceSum      uint16
-	ParaLength      uint16
+	ReserveOne      string
+	ReserveTwo      string
+	ReserveThree    string
+	AddrType        string
+	OpType          string
+	ADType          string
+	ScanType        string
+	ScanStatus      string
+	ScanAble        string
+	ScanPhys        string
+	ScanInterval    string
+	ScanWindow      string
+	ScanTimeout     string
+	ConnStatus      string
+	ServiceHandle   string
+	CharHandle      string
+	ValueHandle     string
+	Handle          string
+	CCCDHandle      string
+	StartHandle     string
+	EndHandle       string
+	Event           string
+	DisConnReason   string
+	FeatureHandle   string //特征handle
+	FeatureSum      string
+	FeatureCfg      string //特征属性配置
+	ConnInterval    string
+	ConnLatency     string
+	ConnTimeout     string
+	MTUSize         string
+	ServiceSum      string
+	ParaLength      string
 	ParaValue       string
-	PHY             uint8
+	PHY             string
 	AnnounceContent string
-	ReserveTLV      []TLVFeature //保留
+	NoticeType      string //通告类型
+	//ReserveTLV      []TLVFeature //保留
 }

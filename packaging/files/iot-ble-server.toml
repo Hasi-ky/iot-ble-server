@@ -2,10 +2,11 @@
 [general]
 log_file = "../../workspace/logs/iot-ble-server"
 log_rotationTime = 168
-log_level = 4
+log_level = 2
 use_redis = true
 local_host = "0.0.0.0"
 bind_port = 3502
+keepalive_time = 15
 
 # Http server settings.
 [http_server]
@@ -44,7 +45,7 @@ route_prefix = "/iot/ble"
 # * require - Always SSL (skip verification)
 # * verify-ca - Always SSL (verify that the certificate presented by the server was signed by a trusted CA)
 # * verify-full - Always SSL (verify that the certification presented by the server was signed by a trusted CA and the server host name matches the one in the certificate)
-dsn = "postgres://iotware:iotware@33.33.33.116:5432/iotware?sslmode=disable"
+dsn = "postgres://iotware:iotware@33.33.33.244:5432/iotware?sslmode=disable"
 automigrate = true
 max_open_connections = 5
 max_idel_connections = 2
@@ -57,7 +58,7 @@ max_idel_connections = 2
 #
 # For more information about the Redis URL format, see:
 # https://www.iana.org/assignments/uri-schemes/prov/redis
-url = "redis://33.33.33.116:6379"
+url = "redis://33.33.33.244:6381"
 
 # MQTT settings.
 [mqtt]

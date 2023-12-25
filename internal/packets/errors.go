@@ -1,35 +1,35 @@
 package packets
 
-type ErrorCode string
+ 
 
 const (
-	Success          ErrorCode = "0000"
-	UnrecognizedVer  ErrorCode = "0001"
-	UnrecognizedType ErrorCode = "0002"
-	ErrorFormat      ErrorCode = "0003"
-	ConnFailed       ErrorCode = "0004"
-	NoResponse       ErrorCode = "0005"
-	UnsupportedEnc   ErrorCode = "0006"
-	DecFailed        ErrorCode = "0007"
-	PwdLenErr        ErrorCode = "0008"
-	InvChar          ErrorCode = "0009"
-	InvVer           ErrorCode = "000A"
-	IsfGatewayRes    ErrorCode = "000B"
-	IsfDeviceRes     ErrorCode = "000C"
-	TunnelDisc       ErrorCode = "000D"
-	NoNeighbor       ErrorCode = "000E"
-	Busy             ErrorCode = "000F"
-	DeviceNoResp     ErrorCode = "0010"
-	DeviceDisc       ErrorCode = "0011"
-	EstConnFailed    ErrorCode = "0012"
-	InvUUID          ErrorCode = "0013"
-	NoReadPer        ErrorCode = "0014"
-	NoWritePer       ErrorCode = "0015"
-	NoChar           ErrorCode = "0016"
-	Timeout          ErrorCode = "0017"
-	Other            ErrorCode = "0018"
-	InvNeighbor      ErrorCode = "0019"
-	Unknown          ErrorCode = "00ff"
+	Success          string = "0000"
+	UnrecognizedVer  string = "0001"
+	UnrecognizedType string = "0002"
+	ErrorFormat      string = "0003"
+	ConnFailed       string = "0004"
+	NoResponse       string = "0005"
+	UnsupportedEnc   string = "0006"
+	DecFailed        string = "0007"
+	PwdLenErr        string = "0008"
+	InvChar          string = "0009"
+	InvVer           string = "000A"
+	IsfGatewayRes    string = "000B"
+	IsfDeviceRes     string = "000C"
+	TunnelDisc       string = "000D"
+	NoNeighbor       string = "000E"
+	Busy             string = "000F"
+	DeviceNoResp     string = "0010"
+	DeviceDisc       string = "0011"
+	EstConnFailed    string = "0012"
+	InvUUID          string = "0013"
+	NoReadPer        string = "0014"
+	NoWritePer       string = "0015"
+	NoChar           string = "0016"
+	Timeout          string = "0017"
+	Other            string = "0018"
+	InvNeighbor      string = "0019"
+	Unknown          string = "00ff"
 )
 
 type Result string
@@ -40,7 +40,7 @@ const (
 	Chinese Language = "zh-CN"
 )
 
-func GetResult(code ErrorCode, language Language) Result {
+func GetResult(code string, language Language) Result {
 	var result Result
 	if language == Chinese {
 		switch code {

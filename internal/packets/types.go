@@ -1,6 +1,6 @@
 package packets
 
-type OpType string
+
 type AddressType uint8
 type ConnType uint8
 type ScanType uint8
@@ -8,8 +8,8 @@ type State uint8
 type PHY uint8
 type Version string
 type ModuleID uint16
-type LinkMsgType string
-type IOTMsgType string
+type GwACK string
+ 
 type AppMsgType string
 type MAC [6]byte
 
@@ -43,7 +43,7 @@ const (
 )
 
 const (
-	Hello LinkMsgType = "0101"
+	Hello string = "0101"
 )
 
 const (
@@ -93,9 +93,9 @@ const (
 )
 
 const (
-	Require         OpType = "01"
-	RequireWithResp OpType = "02"
-	Response        OpType = "03"
+	Require         string = "01"
+	RequireWithResp string = "02"
+	Response        string = "03"
 )
 
 // // version | length | sn | type | opType | gwMac | moduleID |
@@ -125,7 +125,7 @@ const (
 // // string | Length | Reserved0 | AddressType | MAC | ConnType | Reserved1 | ScanType | Reserved2
 // // ScanInterval | ScanWindow | ScanTimeout | ConnInterval | ConnInterval | connLatency | supTimeout
 // type ConnInfo struct {
-// 	string   IOTMsgType
+// 	string   string
 // 	Length       uint16
 // 	Reserved0    uint8
 // 	AddressType  AddressType
@@ -142,10 +142,10 @@ const (
 // 	SupTimeout   uint16
 // }
 
-// // IOTMsgType | Length | Reserved0 | AddressType | MAC | ConnType | Reserved1 | ScanType | Reserved2
+// // string | Length | Reserved0 | AddressType | MAC | ConnType | Reserved1 | ScanType | Reserved2
 // // ScanInterval | ScanWindow | ScanTimeout | ConnInterval | ConnInterval | connLatency | supTimeout
 // type ConnAckInfo struct {
-// 	IOTMsgType   IOTMsgType
+// 	string   string
 // 	Length       uint16
 // 	MAC          MAC
 // 	ErrorCode    ErrorCode
@@ -159,7 +159,7 @@ const (
 // }
 
 // type IOTHead struct {
-// 	Type   IOTMsgType `json:"type"`
+// 	Type   string `json:"type"`
 // 	OpType OpType     `json:"opType"`
 // }
 

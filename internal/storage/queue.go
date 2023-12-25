@@ -1,16 +1,17 @@
 package storage
 
 import (
-	"sync"
 	"iot-ble-server/internal/packets"
+	"sync"
 )
 
 // CQueue is a concurrent unbounded queue which uses two-Lock concurrent queue
 type CQueue struct {
-	Head  *cnode 
-	Tail  *cnode 
+	Head  *cnode
+	Tail  *cnode
 	Hlock sync.Mutex
 	Tlock sync.Mutex
+	sz    int
 }
 
 type cnode struct {
@@ -30,6 +31,7 @@ func (q *CQueue) Enqueue(v packets.JsonUdpInfo) {
 	q.Tlock.Lock()
 	q.Tail.Next = n // Link node at the end of the linked list
 	q.Tail = n      // Swing Tail to node
+	q.sz++
 	q.Tlock.Unlock()
 }
 
@@ -47,6 +49,7 @@ func (q *CQueue) Dequeue() packets.JsonUdpInfo {
 	v := newHead.Value
 	newHead.Value = t
 	q.Head = newHead
+	q.sz--
 	q.Hlock.Unlock()
 	return v
 }
@@ -59,4 +62,8 @@ func (q *CQueue) Peek() packets.JsonUdpInfo {
 		return t
 	}
 	return newHead.Value
+}
+
+func (q *CQueue) Len() int {
+	return q.sz
 }

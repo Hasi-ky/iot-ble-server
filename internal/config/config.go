@@ -7,11 +7,12 @@ import (
 // Config defines the configuration structure.
 type Config struct {
 	General struct {
-		LogFile   string `mapstructure:"log_file"`
-		LogLevel  int    `mapstructure:"log_level"`
-		UseRedis  bool   `mapstructure:"use_redis"`
-		LocalHost string `mapstructure:"local_host"`
-		BindPort  int    `mapstructure:"bind_port"`
+		LogFile       string `mapstructure:"log_file"`
+		LogLevel      int    `mapstructure:"log_level"`
+		UseRedis      bool   `mapstructure:"use_redis"`
+		LocalHost     string `mapstructure:"local_host"`
+		BindPort      int    `mapstructure:"bind_port"`
+		KeepAliveTime int    `mapstructure:"keepalive_time"`
 	} `mapstructure:"general"`
 
 	PostgreSQL struct {
