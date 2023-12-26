@@ -3,7 +3,6 @@ package bleudp
 import (
 	"context"
 	"iot-ble-server/dgram"
-	"iot-ble-server/global/globalconstants"
 	"iot-ble-server/global/globallogger"
 	"iot-ble-server/global/globalsocket"
 	"iot-ble-server/internal/config"
@@ -60,11 +59,11 @@ func procMessage(ctx context.Context, data []byte, rinfo dgram.RInfo) {
 	}
 	globallogger.Log.Infoln("<procMessage>: DevEui:", jsonInfo.MessageBody.GwMac, "current proc msg is", jsonInfo.MessageHeader.LinkMsgType)
 	switch jsonInfo.MessageHeader.LinkMsgType[0:2] {
-	case globalconstants.ChannelControl:
+	case packets.ChannelControl:
 		procChannelMsg(ctx, jsonInfo, jsonInfo.MessageBody.GwMac)
-	case globalconstants.GatewayManager:
+	case packets.GatewayManager:
 		procGatewayMsg(ctx, jsonInfo, jsonInfo.MessageBody.GwMac+jsonInfo.MessageBody.ModuleID)
-	case globalconstants.TerminalManager:
+	case packets.TerminalManager:
 		procTerminalMsg(ctx, jsonInfo, jsonInfo.MessageAppBody.TLV.TLVPayload.DevMac)
 	default:
 		globallogger.Log.Errorln("procMessage: DevEui:", jsonInfo.MessageBody.GwMac, "received unrecognized link message type!")

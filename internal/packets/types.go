@@ -1,6 +1,5 @@
 package packets
 
-
 type AddressType uint8
 type ConnType uint8
 type ScanType uint8
@@ -9,7 +8,7 @@ type PHY uint8
 type Version string
 type ModuleID uint16
 type GwACK string
- 
+
 type AppMsgType string
 type MAC [6]byte
 
@@ -96,6 +95,11 @@ const (
 	Require         string = "01"
 	RequireWithResp string = "02"
 	Response        string = "03"
+)
+const (
+	ChannelControl  string = "01"
+	GatewayManager  string = "02"
+	TerminalManager string = "03"
 )
 
 // // version | length | sn | type | opType | gwMac | moduleID |

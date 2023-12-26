@@ -10,7 +10,5 @@ const (
 	GwSocketCachePrefix           = "iot-ble-server-socket:"
 	BleDevCachePrefix             = "iot-ble-server-bledev:"
 	CacheSeparator                = ":"
-	ChannelControl                = "01"
-	GatewayManager                = "02"
-	TerminalManager               = "03"
+
 )
