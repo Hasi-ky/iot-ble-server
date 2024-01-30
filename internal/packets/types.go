@@ -13,10 +13,6 @@ type AppMsgType string
 type MAC [6]byte
 
 const (
-	Version3 string = "0103"
-)
-
-const (
 	Public AddressType = 0
 	Random AddressType = 1
 )
@@ -41,66 +37,82 @@ const (
 	PHYCoded State = 0x04
 )
 
+//`mac版本`
 const (
-	Hello string = "0101"
+	Version3 string = "0103"
 )
 
-const (
-	IBeaconMsg               string = "0101"
-	BeaconMsg                string = "0106"
-	RFIDMsg                  string = "0108"
-	GeneralIOTMsg            string = "0109"
-	GatewayTypeMsg           string = "0201"
-	GatewaySNMsg             string = "0202"
-	GatewayMACMsg            string = "0203"
-	GatewayModuleMsg         string = "0204"
-	GatewayModuleSNMsg       string = "0205"
-	GatewayModuleMACMsg      string = "0206"
-	GatewayDescribeMsg       string = "0207"
-	GatewayModuleDescribeMsg string = "0208"
-	GatewayModuleEventMsg    string = "0209"
-	ServiceMsg               string = "020A"
-	CharacteristicMsg        string = "020B"
-	DeviceListMsg            string = "020C"
-	NotifyMsg                string = "020D"
-	ScanMsg                  string = "020E"
-	ScanRespMsg              string = "020F"
-	ConnectMsg               string = "0210"
-	ConnectRespMsg           string = "0212"
-	MainServiceReqMsg        string = "0213"
-	MainServiceRespMsg       string = "0214"
-	CharReqMsg               string = "0215"
-	CharRespMsg              string = "0216"
-	CharConfReqMsg           string = "0217"
-	CharConfRespMsg          string = "0218"
-	CharOptReqMsg            string = "0219"
-	CharOptRespMsg           string = "021A"
-	BroadcastMsg             string = "021B"
-	DisconnectMsg            string = "021C"
-	CharDescribeMsg          string = "021E"
-	MainServiceByUUIDReqMsg  string = "021F"
-	MainServiceByUUIDRespMsg string = "0220"
-)
-
-const (
-	AppReq         string = "0301"
-	AppResp        string = "0302"
-	ConnDevList    string = "0303"
-	AppCharConfReq string = "0304"
-	AppBroadcast   string = "0305"
-	AppEvent       string = "0306"
-)
-
-const (
-	Require         string = "01"
-	RequireWithResp string = "02"
-	Response        string = "03"
-)
+//`三类消息`
 const (
 	ChannelControl  string = "01"
 	GatewayManager  string = "02"
 	TerminalManager string = "03"
 )
+
+//`通道` | `网关` | `终端` 三类消息
+const (
+	Hello string = "0101"
+
+	GatewayDevInfo        string = "0201"
+	IotModuleRset         string = "0202"
+	IotModuleStatusChange string = "0203"
+
+	BleRequest        string = "0301"
+	BleConfirm        string = "0301"
+	BleResponse       string = "0302"
+	BleGetConnDevList string = "0303"
+	BleCharacteristic string = "0304"
+	BleBoardcast      string = "0305"
+	BleTerminalEvent  string = "0306"
+)
+
+//`TLV`
+const (
+	TLVIBeaconMsg    string = "0101"
+	TLVBeaconMsg     string = "0106"
+	TLVRFIDMsg       string = "0108"
+	TLVGeneralIOTMsg string = "0109"
+
+	TLVGatewayTypeMsg           string = "0201"
+	TLVGatewaySNMsg             string = "0202"
+	TLVGatewayMACMsg            string = "0203"
+	TLVIotModuleMsg             string = "0204"
+	TLVIotModuleSNMsg           string = "0205"
+	TLVIotModuleMACMsg          string = "0206"
+	TLVGatewayDescribeMsg       string = "0207"
+	TLVIotModuleDescribeMsg     string = "0208"
+	TLVIotModuleEventMsg        string = "0209"
+	TLVServiceMsg               string = "020A"
+	TLVCharacteristicMsg        string = "020B"
+	TLVDeviceListMsg            string = "020C"
+	TLVNotifyMsg                string = "020D"
+	TLVScanMsg                  string = "020E"
+	TLVScanRespMsg              string = "020F"
+	TLVConnectMsg               string = "0210"
+	TLVConnectRespMsg           string = "0212"
+	TLVMainServiceReqMsg        string = "0213"
+	TLVMainServiceRespMsg       string = "0214"
+	TLVCharReqMsg               string = "0215"
+	TLVCharRespMsg              string = "0216"
+	TLVCharConfReqMsg           string = "0217"
+	TLVCharConfRespMsg          string = "0218"
+	TLVCharOptReqMsg            string = "0219"
+	TLVCharOptRespMsg           string = "021A"
+	TLVBroadcastMsg             string = "021B"
+	TLVDisconnectMsg            string = "021C"
+	TLVCharDescribeMsg          string = "021E"
+	TLVMainServiceByUUIDReqMsg  string = "021F"
+	TLVMainServiceByUUIDRespMsg string = "0220"
+)
+
+// `Message`
+const (
+	Require         string = "01"
+	RequireWithResp string = "02"
+	Response        string = "03"
+)
+
+// ``
 
 // // version | length | sn | type | opType | gwMac | moduleID |
 // type MsgHead struct {

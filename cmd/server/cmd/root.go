@@ -30,11 +30,10 @@ func init() {
 	// bind flag to config vars
 	viper.BindPFlag("general.log_level", rootCmd.PersistentFlags().Lookup("log-level"))
 
-	// defaults 
+	// defaults
 	rootCmd.AddCommand(configCmd)
 }
 
- 
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
 		log.Fatal(err)
@@ -42,7 +41,8 @@ func Execute() {
 }
 
 func initConfig() {
-	cfgFile = "D:\\Code\\iot-ble-server\\packaging\\files\\iot-ble-server.toml"
+	//cfgFile = "D:\\Code\\iot-ble-server\\packaging\\files\\iot-ble-server.toml"
+	cfgFile = ""
 	if cfgFile != "" {
 		b, err := ioutil.ReadFile(cfgFile)
 		if err != nil {

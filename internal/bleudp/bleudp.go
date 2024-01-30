@@ -13,7 +13,6 @@ import (
 func Start(ctx context.Context) error {
 	globallogger.Log.Infoln("Start ble udp server")
 	globalsocket.ServiceSocket = dgram.CreateUDPSocket(config.C.General.BindPort)
-	var err error
 	go func() {
 		defer globalsocket.ServiceSocket.Close()
 		data := make([]byte, 1024)
@@ -23,22 +22,22 @@ func Start(ctx context.Context) error {
 				return
 			default:
 				msg, rinfo, err1 := globalsocket.ServiceSocket.Receive(data)
-				if err != nil {
-					err = err1
+				if err1 != nil {
+					globallogger.Log.Errorln(err1)
 					return
 				}
 				go UDPMsgProc(ctx, msg, rinfo)
 			}
 		}
 	}()
-	return err
+	return nil
 }
 
 func UDPMsgProc(ctx context.Context, msg []byte, rinfo dgram.RInfo) {
 	defer func() {
 		err := recover()
 		if err != nil {
-			globallogger.Log.Errorln("<UDPMsgProc> err :", err)
+			globallogger.Log.Errorf("<UDPMsgProc> err :\n", err)
 		}
 	}()
 	if checkMsgSafe(msg) {
@@ -71,20 +70,29 @@ func procMessage(ctx context.Context, data []byte, rinfo dgram.RInfo) {
 }
 
 func procChannelMsg(ctx context.Context, jsonInfo packets.JsonUdpInfo, devEui string) {
-	globallogger.Log.Infof("<procChannelMsg> : channel %s start proc msg", devEui)
+	globallogger.Log.Infof("<procChannelMsg> : channel %s start proc msg\n", devEui)
 	switch jsonInfo.MessageHeader.LinkMsgType {
 	case packets.Hello:
 		procHelloAck(ctx, jsonInfo, devEui)
 	default:
-		globallogger.Log.Errorln("procMessage: DevEui:%s received unrecognized link message type", devEui)
+		globallogger.Log.Errorf("<procChannelMsg>: DevEui:%s received unrecognized link message type\n", devEui)
 	}
 }
 
 func procGatewayMsg(ctx context.Context, jsonInfo packets.JsonUdpInfo, devEui string) {
-	globallogger.Log.Infof("<procGatewayMsg> : gateway %s start proc msg", devEui)
-
+	globallogger.Log.Infof("<procGatewayMsg> : gateway %s start proc msg\n", devEui)
+	switch jsonInfo.MessageHeader.LinkMsgType {
+	case packets.IotModuleStatusChange:
+		procIotModuleStatus(ctx, jsonInfo, devEui)
+	default:
+		globallogger.Log.Errorf("<procGatewayMsg>: DevEui:%s received unrecognized link message type\n", devEui)
+	}
 }
 
 func procTerminalMsg(ctx context.Context, jsonInfo packets.JsonUdpInfo, devEui string) {
-	globallogger.Log.Infof("<procGatewayMsg> : terminal %s start proc msg", devEui)
+	globallogger.Log.Infof("<procGatewayMsg> : terminal %s start proc msg\n", devEui)
+	switch jsonInfo.MessageHeader.LinkMsgType {
+	case packets.BleBoardcast:
+		procBleBoardCast(ctx, jsonInfo, devEui)
+	}
 }

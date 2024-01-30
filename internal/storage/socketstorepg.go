@@ -6,7 +6,7 @@ import (
 )
 
 func FindSocketAndUpdatePG(pgInfo map[string]interface{}) error {
-	_, err := DB().Exec(`INSERT INTO ble_socketinfo (gwmac, family, ipaddr, ipport, updatetime)
+	_, err := DB().Exec(`INSERT INTO iot_ble_socketinfo (gwmac, family, ipaddr, ipport, updatetime)
 	VALUES ($1, $2, $3, $4, $5)
 	ON CONFLICT (gwmac) DO UPDATE
 	SET
@@ -26,13 +26,13 @@ func createTables() {
 			globallogger.Log.Errorln("<createTables>: postgres createModels ", err)
 		}
 	}()
-	DB().Exec(`CREATE TABLE IF NOT EXISTS ble_socketinfo (id SERIAL PRIMARY KEY, gwmac TEXT  NOT NULL UNIQUE, family TEXT, ipaddr TEXT, ipport INTEGER, updatetime TIMESTAMP)`)
+	DB().Exec(`CREATE TABLE IF NOT EXISTS iot_ble_socketinfo (id SERIAL PRIMARY KEY, gwmac TEXT  NOT NULL UNIQUE, family TEXT, ipaddr TEXT, ipport INTEGER, updatetime TIMESTAMP)`)
 	//db.Exec(`CREATE TABLE IF NOT EXISTS iot_ble_socketinfo (id SERIAL PRIMARY KEY, gwmac TEXT(12), family TEXT, ipaddr TEXT, ipport INTEGER, updatetime TIMESTAMP)`)
 }
 
 //`len(args) 1` gwmac | `2` gwmac module id |
 func FindSocketByGwMac(gwMac string) (*globalstruct.SocketInfo, error) {
 	var socketInfo *globalstruct.SocketInfo
-	err := db.Select(&socketInfo, `SELECT * FROM ble_socketinfo WHERE gwmac = `, gwMac)
+	err := db.Select(&socketInfo, `SELECT * FROM iot_ble_socketinfo WHERE gwmac = `, gwMac)
 	return socketInfo, err
 }

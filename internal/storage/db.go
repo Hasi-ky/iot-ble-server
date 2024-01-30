@@ -142,11 +142,9 @@ func Transaction(f func(tx sqlx.Ext) error) error {
 		if rbErr := tx.Rollback(); rbErr != nil {
 			return errors.Wrap(rbErr, "storage: transaction rollback error")
 		}
-
 		if err == ErrTransactionRollback {
 			return nil
 		}
-
 		return err
 	}
 

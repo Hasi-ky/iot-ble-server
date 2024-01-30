@@ -41,13 +41,15 @@ type MessageHeader struct {
 	OpType            string
 }
 
-//| gwMac | moduleID |
+//| gwMac | moduleID | Status | Reason | ErrorCode |
 type MessageBody struct {
-	GwMac    string
-	ModuleID string
+	GwMac     string
+	ModuleID  string
+	ErrorCode string
+	TLV       TLV
 }
 
-// TotalLen | SN| CtrlField | FragOffset | AppMsgType | OpType
+// TotalLen | SN | CtrlField | FragOffset | AppMsgType | OpType
 type MessageAppHeader struct {
 	TotalLen   string
 	SN         string
@@ -61,6 +63,8 @@ type MessageAppHeader struct {
 type MessageAppBody struct {
 	ErrorCode    string
 	RespondFrame string
+	DevSum       string
+	Reserve      string
 	TLV          TLV
 }
 
@@ -73,49 +77,63 @@ type TLV struct {
 
 //tlv message content
 type TLVFeature struct {
-	DevMac          string
-	ErrorCode       string
-	UUID            string
-	MajorID         string
-	MinorID         string
-	MeasurePower    string
-	RSSI            string
-	TimeStamp       string
-	ReserveOne      string
-	ReserveTwo      string
-	ReserveThree    string
-	AddrType        string
-	OpType          string
-	ADType          string
-	ScanType        string
-	ScanStatus      string
-	ScanAble        string
-	ScanPhys        string
-	ScanInterval    string
-	ScanWindow      string
-	ScanTimeout     string
-	ConnStatus      string
-	ServiceHandle   string
-	CharHandle      string
-	ValueHandle     string
-	Handle          string
-	CCCDHandle      string
-	StartHandle     string
-	EndHandle       string
-	Event           string
-	DisConnReason   string
-	FeatureHandle   string //特征handle
-	FeatureSum      string
-	FeatureCfg      string //特征属性配置
-	ConnInterval    string
-	ConnLatency     string
-	ConnTimeout     string
-	MTUSize         string
-	ServiceSum      string
-	ParaLength      string
-	ParaValue       string
-	PHY             string
-	AnnounceContent string
-	NoticeType      string //通告类型
-	//ReserveTLV      []TLVFeature //保留
+	AnnounceContent       string
+	DevMac                string
+	GwMac                 string
+	GwType                string
+	GwSN                  string
+	IotModuleType         string
+	IotModuleSN           string
+	IotModuleMac          string
+	ErrorCode             string
+	UUID                  string
+	MajorID               string
+	MinorID               string
+	MeasurePower          string
+	RSSI                  string
+	TimeStamp             string
+	ReserveOne            string
+	ReserveTwo            string
+	ReserveThree          string
+	AddrType              string
+	OpType                string
+	ADType                string
+	ConnStatus            string
+	CharHandle            string
+	CCCDHandle            string
+	DescriptorHandle      string
+	ValueHandle           string
+	Handle                string
+	EndHandle             string
+	Event                 string
+	DisConnReason         string
+	FeatureHandle         string //特征handle
+	FeatureSum            string
+	FeatureCfg            string //特征属性配置
+	ConnInterval          string
+	ConnLatency           string
+	ConnTimeout           string
+	MTUSize               string
+	ServiceSum            string
+	ScanType              string
+	ScanStatus            string
+	ScanAble              string
+	ScanPhys              string
+	ScanInterval          string
+	ScanWindow            string
+	ScanTimeout           string
+	ServiceHandle         string
+	StartHandle           string
+	ParaLength            string //参数值长度
+	ParaValue             string //应答的参数值
+	PHY                   string
+	Port                  string
+	Primary               string
+	Properties            string
+	NoticeType            string //通告类型
+	NoticeContent         string //通告内容
+	IotModuleId           string
+	IotModuleStatus       string
+	IotModuleChangeReason string
+	TLVReserve            []TLV
 }

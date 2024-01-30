@@ -1,4 +1,4 @@
-package storage
+package packets
 
 import (
 	"fmt"
@@ -63,6 +63,6 @@ func TestInsert(t *testing.T) {
 }
 
 func TestMain(t *testing.T) {
-	a := 0x3f
-	fmt.Printf("aaa%T", a)
+	r := TLV{}
+	fmt.Println(len(r.TLVPayload.TLVReserve))
 }

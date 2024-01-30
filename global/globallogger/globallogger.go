@@ -11,12 +11,12 @@ var Log logger.Logger
 func Init() {
 	var err error
 	numberToLog := map[int]string{
-		5 :"debug", 
-		4 :"info", 
-		3 :"warning", 
-		2 :"error", 
-		1:"fatal", 
-		0:"panic", 
+		5: "debug",
+		4: "info",
+		3: "warning",
+		2: "error",
+		1: "fatal",
+		0: "panic",
 	}
 	if Log, err = logger.New(logger.Config{
 		Path:  config.C.General.LogFile,
