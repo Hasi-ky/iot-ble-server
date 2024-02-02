@@ -6,6 +6,7 @@ import (
 	"iot-ble-server/internal/api"
 	"iot-ble-server/internal/bleudp"
 	"iot-ble-server/internal/config"
+	"iot-ble-server/internal/crontab"
 	"iot-ble-server/internal/device"
 	"iot-ble-server/internal/packets"
 	"iot-ble-server/internal/storage"
@@ -33,6 +34,7 @@ func run(cmd *cobra.Command, args []string) error {
 		startBleUdp,
 		startHttpServer,
 		startDevKeepAlive,
+		startCrontab,
 	}
 
 	for _, t := range tasks {
@@ -110,5 +112,11 @@ func startDevKeepAlive(ctx context.Context) error {
 	if err := device.KeepAlive(); err != nil {
 		return errors.Wrap(err, "start devices keep alive error")
 	}
+	return nil
+}
+
+//定时任务启动
+func startCrontab(ctx context.Context) error {
+	crontab.Start(ctx)
 	return nil
 }
