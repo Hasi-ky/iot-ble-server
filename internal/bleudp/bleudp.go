@@ -21,9 +21,9 @@ func Start(ctx context.Context) error {
 			case <-ctx.Done():
 				return
 			default:
-				msg, rinfo, err1 := globalsocket.ServiceSocket.Receive(data)
-				if err1 != nil {
-					globallogger.Log.Errorln(err1)
+				msg, rinfo, err := globalsocket.ServiceSocket.Receive(data)
+				if err != nil {
+					globallogger.Log.Errorln(err)
 					return
 				}
 				go UDPMsgProc(ctx, msg, rinfo)
@@ -75,7 +75,7 @@ func procChannelMsg(ctx context.Context, jsonInfo packets.JsonUdpInfo, devEui st
 	case packets.Hello:
 		procHelloAck(ctx, jsonInfo, devEui)
 	default:
-		globallogger.Log.Errorf("<procChannelMsg>: DevEui:%s received unrecognized link message type\n", devEui)
+		globallogger.Log.Errorf("<procChannelMsg>: DevEui:%s received unrecognized link message type:%sn", devEui, jsonInfo.MessageHeader.LinkMsgType)
 	}
 }
 
@@ -85,7 +85,7 @@ func procGatewayMsg(ctx context.Context, jsonInfo packets.JsonUdpInfo, devEui st
 	case packets.IotModuleStatusChange:
 		procIotModuleStatus(ctx, jsonInfo, devEui)
 	default:
-		globallogger.Log.Errorf("<procGatewayMsg>: DevEui:%s received unrecognized link message type\n", devEui)
+		globallogger.Log.Errorf("<procGatewayMsg>: DevEui:%s received unrecognized message type:%s\n", devEui, jsonInfo.MessageHeader.LinkMsgType)
 	}
 }
 
@@ -94,5 +94,7 @@ func procTerminalMsg(ctx context.Context, jsonInfo packets.JsonUdpInfo, devEui s
 	switch jsonInfo.MessageHeader.LinkMsgType {
 	case packets.BleBoardcast:
 		procBleBoardCast(ctx, jsonInfo, devEui)
+	default:
+		globallogger.Log.Errorf("<procTerminalMsg>: DevEui:%s received unrecognized  message type%s:\n", devEui, jsonInfo.MessageHeader.LinkMsgType)
 	}
 }

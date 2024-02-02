@@ -5,6 +5,9 @@ import (
 	"iot-ble-server/global/globallogger"
 	"strconv"
 	"strings"
+	"time"
+
+	"github.com/redis/go-redis/v9"
 )
 
 //首位为prefix
@@ -35,4 +38,21 @@ func ConvertDecimalToHexStr(param, expectLen int) string {
 		hexStr = "0" + hexStr
 	}
 	return hexStr
+}
+
+//针对redis get时的处理判断
+func JudgeGet(err error) int {
+	if err != nil {
+		if err != redis.Nil {
+			return globalconstants.JudgeGetError
+		}
+		return globalconstants.JudgeGetNil
+	}
+	return globalconstants.JudgeGetRes
+}
+
+//时间控制
+func CompareTimeIsExpire(current, pass time.Time, limit time.Duration) bool {
+	duration := current.Sub(pass)
+	return duration > limit
 }

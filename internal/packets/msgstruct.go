@@ -64,6 +64,7 @@ type MessageAppBody struct {
 	ErrorCode    string
 	RespondFrame string
 	DevSum       string
+	GwMac        string
 	Reserve      string
 	TLV          TLV
 }
@@ -79,12 +80,15 @@ type TLV struct {
 type TLVFeature struct {
 	AnnounceContent       string
 	DevMac                string
-	GwMac                 string
 	GwType                string
 	GwSN                  string
+	GwMac                 string
 	IotModuleType         string
 	IotModuleSN           string
 	IotModuleMac          string
+	IotModuleId           string
+	IotModuleStatus       string
+	IotModuleChangeReason string
 	ErrorCode             string
 	UUID                  string
 	MajorID               string
@@ -132,8 +136,6 @@ type TLVFeature struct {
 	Properties            string
 	NoticeType            string //通告类型
 	NoticeContent         string //通告内容
-	IotModuleId           string
-	IotModuleStatus       string
-	IotModuleChangeReason string
-	TLVReserve            []TLV
+
+	TLVReserve []TLV
 }

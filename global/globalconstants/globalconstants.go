@@ -11,9 +11,16 @@ var (
 	EncodeInsertLen               = 4
 	GwSocketCachePrefix           = "ble:server:socket:"
 	BleDevCachePrefix             = "ble:server:dev:"
-	BleDevInfoCachePrefix         = "ble:server:infodev:"
+	BleDevInfoCachePrefix         = "ble:server:infodev"
 	CacheSeparator                = ":"
-	GwIotModuleCachePrefie        = "ble:gwIot:"
+	GwIotModuleCachePrefie        = "ble:server:iotstatus:"
 
-	TTLDuration = time.Hour * 7 * 24
+	TTLDuration      = time.Hour * 7 * 24
+	AgingTTLDuration = time.Second * 30
+)
+
+const (
+	JudgeGetError = iota   //取值错误
+	JudgeGetNil            //空
+	JudgeGetRes            //取到
 )

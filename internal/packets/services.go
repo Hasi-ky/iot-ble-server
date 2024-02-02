@@ -15,6 +15,9 @@ type services struct {
 	UUIDs []service
 }
 
+
+var serviceMap map[uint16]string
+
 var s services
 
 func SetServices() {
@@ -27,6 +30,7 @@ func SetServices() {
 	if err != nil {
 		panic(err)
 	}
+	 
 }
 
 func GetSvcName(uuid uint16) string {

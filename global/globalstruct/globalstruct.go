@@ -1,6 +1,8 @@
 package globalstruct
 
-import "time"
+import (
+	"time"
+)
 
 //网络信息接口
 type SocketInfo struct {
@@ -21,12 +23,14 @@ type IotModuleInfo struct {
 
 //终端设备信息
 type TerminalInfo struct {
-	TerminalName  string    `json:"terminalName"`
-	TerminalMac   string    `json:"terminalMac"`
-	GwMac         string    `json:"gwMac"`
-	IotModuleId   uint16    `json:"iotModuleId"`
-	RSSI          int8      `json:"rssi"`
-	SupportConn   bool      `json:"supportConn"`
-	ConnectStatus uint8     `json:"connectStatus"`
-	TimeStamp     time.Time `json:"timestamp"`
+	TerminalName  string    `json:"terminalName,omitempty"`
+	TerminalMac   string    `json:"terminalMac,omitempty"`
+	GwMac         string    `json:"gwMac,omitempty"`
+	IotModuleId   uint16    `json:"iotModuleId,omitempty"`
+	RSSI          int8      `json:"rssi,omitempty"`
+	SupportConn   bool      `json:"supportConn,omitempty"`
+	ConnectStatus uint8     `json:"connectStatus,omitempty"`
+	TimeStamp     time.Time `json:"timestamp,omitempty"`
 }
+
+ 

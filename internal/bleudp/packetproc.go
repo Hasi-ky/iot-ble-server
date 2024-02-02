@@ -158,7 +158,81 @@ func SendDownMessage(data []byte, devEui, mac string) {
 	}
 }
 
-//终端广播报文能处理
+//终端广播报文能处理, 唯一映射即可
+//连接|断联以后才会有连接状态 首次情况下肯定没有
+//`收到连接报文的时候还需要重新设置设备相关连接状态`
 func procBleBoardCast(ctx context.Context, jsoninfo packets.JsonUdpInfo, devEui string) {
-	
+	var (
+		devCacheByte []byte
+		devCacheStr  string
+		devInfo      globalstruct.TerminalInfo
+		err          error
+	)
+	moduleId, _ := strconv.ParseUint(jsoninfo.MessageBody.ModuleID, 16, 16)
+	rssi, _ := strconv.ParseInt(jsoninfo.MessageBody.TLV.TLVPayload.RSSI, 16, 8)
+	if config.C.General.UseRedis {
+		devCacheStr, err = globalredis.RedisCache.HGet(ctx, globalconstants.BleDevInfoCachePrefix, jsoninfo.MessageAppBody.TLV.TLVPayload.DevMac).Result()
+		judgeNum := globalutils.JudgeGet(err)
+		if judgeNum == globalconstants.JudgeGetError {
+			globallogger.Log.Errorf("<procBleBoardCast> DevEui: %s redis has error %v\n", devEui, err)
+			return
+		} else if judgeNum == globalconstants.JudgeGetNil { //缺少数据压入
+			devInfo = globalstruct.TerminalInfo{ //支持连接应当在content内容中附带，默认不支持
+				TerminalName: jsoninfo.MessageAppBody.TLV.TLVPayload.DevMac,
+				TerminalMac:  jsoninfo.MessageAppBody.TLV.TLVPayload.DevMac,
+				GwMac:        jsoninfo.MessageBody.GwMac,
+				IotModuleId:  uint16(moduleId),
+				RSSI:         int8(rssi),
+				TimeStamp:    time.Now(),
+			}
+			devCacheByte, err = json.Marshal(devInfo)
+			if err != nil {
+				globallogger.Log.Errorf("<procBleBoardCast> DevEui %s the redis msg can't compress data %v\n", devEui, err)
+				return
+			}
+		} else { //更新
+			err = json.Unmarshal([]byte(devCacheStr), &devInfo)
+			if err != nil {
+				globallogger.Log.Errorf("<procBleBoardCast> DevEui %s the redis msg can't resolve %v\n", devEui, err)
+				return
+			}
+			devInfo.TimeStamp = time.Now()
+			devCacheByte, err = json.Marshal(devInfo)
+			if err != nil {
+				globallogger.Log.Errorf("<procBleBoardCast> DevEui %s the redis msg can't resolve data %v", devEui, err)
+				return
+			}
+		}
+		globalredis.RedisCache.HSet(ctx, globalconstants.BleDevInfoCachePrefix, jsoninfo.MessageAppBody.TLV.TLVPayload.DevMac, devCacheByte) //刷新或重新键入
+	} else {
+		devCacheByte, err = globalmemo.BleFreeCacheDevInfo.Get([]byte(jsoninfo.MessageAppBody.TLV.TLVPayload.DevMac))
+		if err != nil {
+			devInfo = globalstruct.TerminalInfo{ //支持连接应当在content内容中附带，默认不支持
+				TerminalName: jsoninfo.MessageAppBody.TLV.TLVPayload.DevMac,
+				TerminalMac:  jsoninfo.MessageAppBody.TLV.TLVPayload.DevMac,
+				GwMac:        jsoninfo.MessageBody.GwMac,
+				IotModuleId:  uint16(moduleId),
+				RSSI:         int8(rssi),
+				TimeStamp:    time.Now(),
+			}
+			devCacheByte, err = json.Marshal(devInfo)
+			if err != nil {
+				globallogger.Log.Errorf("<procBleBoardCast> DevEui %s the memo msg can't compress data %v", devEui, err)
+				return
+			}
+		} else {
+			err = json.Unmarshal(devCacheByte, &devInfo)
+			if err != nil {
+				globallogger.Log.Errorf("<procBleBoardCast> DevEui %s the memo msg can't resolve %v", devEui, err)
+				return
+			}
+			devInfo.TimeStamp = time.Now()
+			devCacheByte, err = json.Marshal(devInfo)
+			if err != nil {
+				globallogger.Log.Errorf("<procBleBoardCast> DevEui %s the memo msg can't resolve data %v", devEui, err)
+				return
+			}
+		}
+		globalmemo.BleFreeCacheDevInfo.Set([]byte(jsoninfo.MessageAppBody.TLV.TLVPayload.DevMac), devCacheByte, 0)  //刷新和写入
+	}
 }

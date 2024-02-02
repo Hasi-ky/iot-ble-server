@@ -8,6 +8,15 @@ import (
 
 	"github.com/jmoiron/sqlx"
 )
+//var m1 map[string]string
+func init() {
+	//m1 = map[string]string{}
+}
+
+func Test1(t *testing.T) {
+	var m1 map[string][]int
+	fmt.Println(m1["1"][2])
+}
 
 func TestXxx(t *testing.T) {
 	db, err := sqlx.Open("postgres", "postgres://iotware:iotware@33.33.33.244:5432/iotware?sslmode=disable")
@@ -63,6 +72,7 @@ func TestInsert(t *testing.T) {
 }
 
 func TestMain(t *testing.T) {
-	r := TLV{}
-	fmt.Println(len(r.TLVPayload.TLVReserve))
+	var s []string
+	fmt.Println(len(s))
+
 }
