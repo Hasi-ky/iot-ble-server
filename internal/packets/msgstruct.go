@@ -6,12 +6,12 @@ import (
 
 //UDP packets `PendFrame` 期待帧 | `PendCtrl` 期待编码格式 |
 type JsonUdpInfo struct {
-	MessageHeader       MessageHeader
-	MessageBody         MessageBody
-	MessageAppHeader    MessageAppHeader
-	MessageAppBody      MessageAppBody
-	Rinfo               dgram.RInfo
-	PendFrame, PendCtrl int
+	MessageHeader    MessageHeader
+	MessageBody      MessageBody
+	MessageAppHeader MessageAppHeader
+	MessageAppBody   MessageAppBody
+	Rinfo            dgram.RInfo
+	PendCtrl         int
 }
 
 type MessageType struct {
@@ -128,6 +128,7 @@ type TLVFeature struct {
 	ScanTimeout           string
 	ServiceHandle         string
 	StartHandle           string
+	SupervisionWindow     string
 	ParaLength            string //参数值长度
 	ParaValue             string //应答的参数值
 	PHY                   string
@@ -136,6 +137,5 @@ type TLVFeature struct {
 	Properties            string
 	NoticeType            string //通告类型
 	NoticeContent         string //通告内容
-
-	TLVReserve []TLV
+	TLVReserve            []TLV  //携带TLV
 }

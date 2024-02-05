@@ -35,7 +35,8 @@ func procHelloAck(ctx context.Context, jsoninfo packets.JsonUdpInfo, devEui stri
 	}
 	updateSockets(ctx, jsoninfo.MessageBody.GwMac, jsoninfo.Rinfo, config.C.General.KeepAliveTime)
 	newJsonInfo.MessageHeader = reMsgHeader
-	sendBytes := EnCodeForDownUdpMessage(newJsonInfo, globalconstants.CtrlLinkedMsgHeader)
+	newJsonInfo.PendCtrl = globalconstants.CtrlLinkedMsgHeader
+	sendBytes := EnCodeForDownUdpMessage(newJsonInfo)
 	SendDownMessage(sendBytes, jsoninfo.MessageBody.GwMac, jsoninfo.MessageBody.GwMac)
 }
 
@@ -117,6 +118,7 @@ func updateSockets(ctx context.Context, gwMac string, rinfo dgram.RInfo, msgAliv
 }
 
 // 消息下行接口
+//这里传入的mac应该是网关对应的mac
 func SendDownMessage(data []byte, devEui, mac string) {
 	var (
 		socketInfo          *globalstruct.SocketInfo
@@ -132,7 +134,7 @@ func SendDownMessage(data []byte, devEui, mac string) {
 		socketInfoBytes, err = globalmemo.BleFreeCache.Get([]byte(cacheKey))
 	}
 	if err != nil && err != redis.Nil {
-		globallogger.Log.Errorf("<SendDownMessage> DevEui: %s send fail :%v", devEui, err)
+		globallogger.Log.Errorf("<SendDownMessage> DevEui: %s send fail :%v\n", devEui, err)
 		return
 	}
 	if len(socketInfoBytes) == 0 {
@@ -145,16 +147,16 @@ func SendDownMessage(data []byte, devEui, mac string) {
 		json.Unmarshal(socketInfoBytes, &socketInfo)
 	}
 	if socketInfo == nil {
-		globallogger.Log.Errorln("<SendDownMessage> DevEui: %s missing corresponding socket information", devEui)
+		globallogger.Log.Errorf("<SendDownMessage> DevEui: %s missing corresponding socket information\n", devEui)
 	} else if socketInfo.Family == "IPv6" {
-		globallogger.Log.Errorln("<SendDownMessage> DevEui: %s current not support IPv6", devEui)
+		globallogger.Log.Errorf("<SendDownMessage> DevEui: %s current not support IPv6\n", devEui)
 	} else {
 		err = globalsocket.ServiceSocket.Send(data, socketInfo.IPPort, socketInfo.IPAddr)
 		if err != nil {
-			globallogger.Log.Errorf("<SendDownMessage> DevEui: %s send message occur error %v", devEui, err)
+			globallogger.Log.Errorf("<SendDownMessage> DevEui: %s send message occur error %v\n", devEui, err)
 			return
 		}
-		globallogger.Log.Infof("<SendDownMessage> DevEui: %s send message success", devEui)
+		globallogger.Log.Infof("<SendDownMessage> DevEui: %s send message success\n", devEui)
 	}
 }
 
@@ -233,6 +235,6 @@ func procBleBoardCast(ctx context.Context, jsoninfo packets.JsonUdpInfo, devEui 
 				return
 			}
 		}
-		globalmemo.BleFreeCacheDevInfo.Set([]byte(jsoninfo.MessageAppBody.TLV.TLVPayload.DevMac), devCacheByte, 0)  //刷新和写入
+		globalmemo.BleFreeCacheDevInfo.Set([]byte(jsoninfo.MessageAppBody.TLV.TLVPayload.DevMac), devCacheByte, 0) //刷新和写入
 	}
 }

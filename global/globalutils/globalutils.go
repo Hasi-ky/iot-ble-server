@@ -56,3 +56,13 @@ func CompareTimeIsExpire(current, pass time.Time, limit time.Duration) bool {
 	duration := current.Sub(pass)
 	return duration > limit
 }
+
+// `str` 原串 | `inset` 插入串 | `index` 插入点 |
+func InsertString(str, insert string, index int) string {
+	if index < 0 || index >= len(str) {
+		globallogger.Log.Errorln("<InsertString>: please check param with |index| or |str|")
+		return ""
+	}
+	pre, tail := str[:index], str[index:]
+	return pre + insert + tail
+}

@@ -107,7 +107,7 @@ const (
 
 // `Message`
 const (
-	Require         string = "01"
+	Request         string = "01"
 	RequireWithResp string = "02"
 	Response        string = "03"
 )

@@ -54,6 +54,13 @@ type Config struct {
 		TelemetryTopic    string `mapstructure:"telemetry_topic"`
 		RpcTopicTemplate  string `mapstructure:"rpc_topic"`
 	}
+
+	HttpServer struct {
+		Bind        string `mapstructure:"bind"`
+		TlsCert     string `mapstructure:"tls_cert"`
+		TlsKey      string `mapstructure:"tls_Key"`
+		RoutePrefix string `mapstructure:"route_prefix"`
+	}
 }
 
 // C holds the global configuration.

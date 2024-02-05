@@ -5,20 +5,19 @@ import (
 	"crypto/tls"
 	"time"
 
+	"iot-ble-server/global/globalmemo"
+	"iot-ble-server/global/globalredis"
+	"iot-ble-server/internal/config"
+
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 	"github.com/redis/go-redis/v9"
 	log "github.com/sirupsen/logrus"
 	cmap "github.com/streamrail/concurrent-map"
-
-	"iot-ble-server/global/globalmemo"
-	"iot-ble-server/global/globalredis"
-	"iot-ble-server/internal/config"
 )
 
 func Setup(ctx context.Context, c config.Config) error {
 	log.Info("<storage Setup>: setting up storage package")
-
 	if c.General.UseRedis {
 		log.Info("<storage Setup>: setting up Redis client")
 		if len(c.Redis.Servers) == 0 {
@@ -59,7 +58,6 @@ func Setup(ctx context.Context, c config.Config) error {
 		// Redis keep alive
 		go redisKeepAlive(ctx)
 	}
-
 	log.Info("<storage Setup>: connecting to PostgreSQL database")
 	d, err := sqlx.Open("postgres", c.PostgreSQL.DSN)
 	SetDB(&DBLogger{DB: d})
@@ -69,7 +67,7 @@ func Setup(ctx context.Context, c config.Config) error {
 	d.SetMaxOpenConns(c.PostgreSQL.MaxOpenConnections)
 	d.SetMaxIdleConns(c.PostgreSQL.MaxIdleConnections)
 	go pgsqlKeepAlive(ctx, d)
-	globalredis.RedisCache = RedisClient()
+	globalredis.RedisCache = redisClient
 	globalmemo.MemoCacheDev = cmap.New()
 	globalmemo.MemoCacheGw = cmap.New()
 	createTables()
@@ -103,7 +101,7 @@ func pgsqlKeepAlive(ctx context.Context, db *sqlx.DB) {
 			if err := db.Ping(); err != nil {
 				log.WithError(err).Warning("<pgsqlKeepAlive>: ping PostgreSQL database error, will retry in 30s")
 			} else {
-				log.Info("<pgsqlKeepAlive>: ping PostgreSQL database success")
+				log.Infoln("<pgsqlKeepAlive>: ping PostgreSQL database success")
 			}
 		case <-ctx.Done():
 			return

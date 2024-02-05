@@ -33,4 +33,16 @@ type TerminalInfo struct {
 	TimeStamp     time.Time `json:"timestamp,omitempty"`
 }
 
- 
+//设备连接
+type DevConnection struct {
+	DevMac            string `form:"devMac" json:"devMac" binding:"devMac"`
+	AddrType          uint8  `form:"addrType" json:"addrType" binding:"addrType"`
+	OpType            uint8  `form:"opType" json:"opType" binding:"opType"`
+	ScanType          uint8  `form:"scanType" json:"scanType" binding:"scanType"`
+	ScanInterval      uint16 `form:"scanInterval" json:"scanInterval" binding:"scanInterval"`
+	ScanWindow        uint16 `form:"scanWindow" json:"scanWindow" binding:"scanWindow"`
+	ScanTimeout       uint16 `form:"scanTimeout" json:"scanTimeout" binding:"scanTimeout"`
+	ConnInterval      uint16 `form:"connInterval" json:"connInterval" binding:"connInterval"`
+	ConnLatency       uint16 `form:"connLatency" json:"connLatency" binding:"connLatency"`
+	SupervisionWindow uint16 `form:"supervisionWindow" json:"supervisionWindow" binding:"supervisionWindow"`
+}

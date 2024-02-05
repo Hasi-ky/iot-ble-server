@@ -1,10 +1,16 @@
 package storage
 
 import (
-	"iot-ble-server/internal/packets"
 	"sync"
+	"time"
 )
 
+//缓存点信息
+type NodeCache struct {
+	FrameSN   int       `json:"frameSN"`
+	TimeStamp time.Time `json:"timeStamp"`
+	MsgType   string    `json:"msgType"`
+}
 // CQueue is a concurrent unbounded queue which uses two-Lock concurrent queue
 type CQueue struct {
 	Head  *cnode
@@ -15,7 +21,7 @@ type CQueue struct {
 }
 
 type cnode struct {
-	Value packets.JsonUdpInfo
+	Value NodeCache
 	Next  *cnode
 }
 
@@ -26,7 +32,7 @@ func NewCQueue() *CQueue {
 }
 
 // Enqueue puts the given value v at the tail of the queue.
-func (q *CQueue) Enqueue(v packets.JsonUdpInfo) {
+func (q *CQueue) Enqueue(v NodeCache) {
 	n := &cnode{Value: v}
 	q.Tlock.Lock()
 	q.Tail.Next = n // Link node at the end of the linked list
@@ -37,8 +43,8 @@ func (q *CQueue) Enqueue(v packets.JsonUdpInfo) {
 
 // Dequeue removes and returns the value at the head of the queue.
 // It returns nil if the queue is empty.
-func (q *CQueue) Dequeue() packets.JsonUdpInfo {
-	var t packets.JsonUdpInfo
+func (q *CQueue) Dequeue() NodeCache {
+	var t NodeCache
 	q.Hlock.Lock()
 	n := q.Head
 	newHead := n.Next
@@ -55,8 +61,8 @@ func (q *CQueue) Dequeue() packets.JsonUdpInfo {
 }
 
 //Get header of queue with no sync
-func (q *CQueue) Peek() packets.JsonUdpInfo {
-	var t packets.JsonUdpInfo
+func (q *CQueue) Peek() NodeCache {
+	var t NodeCache
 	newHead := q.Head.Next
 	if newHead == nil {
 		return t
