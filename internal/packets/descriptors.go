@@ -1,8 +1,9 @@
 package packets
 
 import (
-	"gopkg.in/yaml.v2"
 	"io/ioutil"
+
+	"gopkg.in/yaml.v2"
 )
 
 type Descriptor struct {
@@ -15,7 +16,10 @@ type Descriptors struct {
 	UUIDs []Descriptor
 }
 
-var d Descriptors
+var (
+	d    Descriptors
+	dMap map[uint16]string
+)
 
 func SetDescriptors() {
 	data, err := ioutil.ReadFile("D:\\Code\\iot-ble-server\\packaging\\files\\descriptors.yaml")
@@ -27,14 +31,15 @@ func SetDescriptors() {
 	if err != nil {
 		panic(err)
 	}
+	dMap = make(map[uint16]string)
+	for _, v := range d.UUIDs {
+		dMap[v.UUID] = v.Name
+	}
 }
 
 func GetDescName(uuid uint16) string {
-	for _, v := range d.UUIDs {
-		if v.UUID == uuid {
-			return v.Name
-		}
+	if curDescriptor, ok := dMap[uuid]; ok {
+		return curDescriptor
 	}
-
 	return "Unknown Descriptor"
 }
