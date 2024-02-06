@@ -35,6 +35,11 @@ const (
 type Result string
 type Language string
 
+func (r Result) String() string {
+	return string(Request)
+}
+
+
 const (
 	English Language = "en-US"
 	Chinese Language = "zh-CN"

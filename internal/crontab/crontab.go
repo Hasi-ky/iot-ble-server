@@ -35,7 +35,7 @@ func TerminalAging(ctx context.Context) {
 				var tempDevInfo = make(map[string]string)
 				allDevInfo, err := globalredis.RedisCache.HGetAll(ctx, globalconstants.BleDevInfoCachePrefix).Result()
 				if err != nil {
-					globallogger.Log.Errorf("<TerminalAging>, redis has broken", err)
+					globallogger.Log.Errorf("<TerminalAging>, redis has broken %v", err)
 					continue
 				}
 				for devMac, devInfo := range allDevInfo {

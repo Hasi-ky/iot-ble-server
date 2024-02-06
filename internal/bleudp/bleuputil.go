@@ -274,10 +274,25 @@ func ResendMessage(ctx context.Context, frameSN, reSendTimes int, devMac, gwMac 
 
 //异步方法， 自旋等待,在下发消息前，需要从currentMap中取到对应消息队列
 //redis就传key下来 curQueue
-//方法仅针对终端，因为网关应当不是一发一收 
-func SendMsgBeforeDown(ctx context.Context, sendBytes []byte, frameSN int, devMac string, gwMac string) {
+//方法仅针对终端，因为网关应当不是一发一收
+func SendMsgBeforeDown(ctx context.Context, sendBytes []byte, frameSN int, devMac, gwMac, msgType string) {
+	curMemo := storage.NodeCache{
+		FrameSN:   frameSN,
+		TimeStamp: time.Now(),
+		MsgType:   msgType,
+	}
+	cache, err := json.Marshal(curMemo)
+	if err != nil {
+		globallogger.Log.Errorf("<SendMsgBeforeDown>: devEui: %s data generate failed %v\n", devMac, err)
+		return
+	}
 	if config.C.General.UseRedis {
-		for {  
+		_, errPre := globalredis.RedisCache.RPush(ctx, devMac, cache).Result()
+		if errPre != nil {
+			globallogger.Log.Errorf("<SendMsgBeforeDown>: devEui: %s redis can't work %v\n", devMac, errPre)
+			return
+		}
+		for {
 			queueByte, err := globalredis.RedisCache.LIndex(ctx, devMac, 0).Result()
 			if err != nil {
 				globallogger.Log.Errorf("<SendMsgBeforeDown>: devEui: %s redis has error %v, frameSN sendDown failed\n", devMac, err)
@@ -303,6 +318,11 @@ func SendMsgBeforeDown(ctx context.Context, sendBytes []byte, frameSN int, devMa
 			time.Sleep(time.Microsecond * 500) //自旋等待下发
 		}
 	} else {
+		var curQueue *storage.CQueue
+		if tempQueue, ok := globalmemo.MemoCacheDev.Get(devMac); ok {
+			curQueue = tempQueue.(*storage.CQueue)
+		}
+		curQueue.Enqueue(curMemo)
 		for {
 			curQueue, ok := globalmemo.MemoCacheDev.Get(devMac)
 			if !ok { //缺少下发数据
@@ -452,6 +472,58 @@ func GetDevResponseTLV(data []byte, index int) (res packets.TLV) {
 	default:
 		globallogger.Log.Errorf("<GetDevResponseTLV>: the corresponding message type cannot be recognized. please troubleshoot the error!")
 		return packets.TLV{}
+	}
+	return
+}
+
+//处理上行消息时消息弹栈操作
+//校验消息是否与当前消息对应
+//正对消息、落后消息，超前不存在
+// 网关不需要
+// -1 出现错误 0 正对  1 落后 2超前不存在
+func CheckUpMessageFrame(ctx context.Context, devMac string, frameSN int) (resCode int) {
+	resCode = globalconstants.TERMINAL_CORRECT
+	var (
+		frameInfo storage.NodeCache
+		cacheStr  string
+		cache     []byte
+		queue     interface{}
+		err       error
+		ok        bool
+	)
+	if config.C.General.UseRedis {
+		cacheStr, err = globalredis.RedisCache.LIndex(ctx, devMac, 0).Result() //解读完就弹出
+		if err != nil && err != redis.Nil {
+			globallogger.Log.Errorf("<CheckUpMessageFrame> DevEui %s get redis error %v\n", devMac, err)
+			resCode = globalconstants.TERMINAL_EXCEPTION
+			return
+		}
+		cache = []byte(cacheStr)
+		err = json.Unmarshal([]byte(cache), &frameInfo)
+		if err != nil {
+			globallogger.Log.Errorf("<CheckUpMessageFrame> DevEui %s data change error %v\n", devMac, err)
+			resCode = globalconstants.TERMINAL_EXCEPTION
+			return
+		}
+	} else {
+		queue, ok = globalmemo.MemoCacheDev.Get(devMac)
+		if !ok {
+			globallogger.Log.Errorf("<CheckUpMessageFrame> DevEui %s get memo cache error %v\n", devMac, err)
+			resCode = globalconstants.TERMINAL_EXCEPTION
+			return
+		}
+		frameInfo = queue.(*storage.CQueue).Peek()
+	}
+	if frameInfo.FrameSN < frameSN { //缓存落后，当前数据超前
+		resCode = globalconstants.TERMINAL_ADVANCE
+	} else if frameInfo.FrameSN > frameSN {
+		resCode = globalconstants.TERMINAL_DELAY //终端消息来的滞后
+	} else {
+		if config.C.General.UseRedis {
+			globalredis.RedisCache.LPop(ctx, devMac)
+		} else {
+			queue.(*storage.CQueue).Dequeue()
+		}
 	}
 	return
 }

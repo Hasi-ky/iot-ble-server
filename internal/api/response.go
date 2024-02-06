@@ -5,8 +5,25 @@ type Result struct {
 	Message *string `json:"message"` //报错信息
 }
 
+
+
 type DeleteResponse Result
 
 func (q DeleteResponse) Type() string {
 	return "删除"
+}
+
+type ConnectResponse struct {
+	Result
+	ConnectStatus uint8 `json:"connectStatus"`
+}
+
+func (c ConnectResponse) Type() string {
+	return "连接"
+}
+
+//
+type MainServiceResponse struct {
+	Result
+
 }

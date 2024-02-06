@@ -162,3 +162,6 @@ func GenerateMessageAppBody(appMsgType, TLVType string, args interface{}) (resul
 	}
 	return
 }
+
+
+

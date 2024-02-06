@@ -46,3 +46,19 @@ type DevConnection struct {
 	ConnLatency       uint16 `form:"connLatency" json:"connLatency" binding:"connLatency"`
 	SupervisionWindow uint16 `form:"supervisionWindow" json:"supervisionWindow" binding:"supervisionWindow"`
 }
+
+//响应web界面端
+type ResultMessage struct {
+	Code    int         `json:"code"`
+	Data    interface{} `json:"data"`
+	Message string      `json:"message"`
+}
+
+//服务消息
+type ServiceInfo struct {
+	DevEui         string `json:"devEui" db:"devEui"` //上述三键合一, 唯一标定
+	PrimaryService uint8  `json:"primaryService" db:"primaryService"`
+	UUIDService    uint16 `json:"uuidService" db:"uuidService"`
+	HandleService  uint16 `json:"handleService" db:"handleService"`
+	DevMac         string `json:"devMac" db:"devMac"`
+}

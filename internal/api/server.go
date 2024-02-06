@@ -18,10 +18,4 @@ type HttpServer struct {
 	handler     *gin.Engine
 }
 
-//响应web界面端
-type ResultMessage struct {
-	Code    int         `json:"code"`
-	Data    interface{} `json:"data"`
-	Message string      `json:"message"`
-}
 

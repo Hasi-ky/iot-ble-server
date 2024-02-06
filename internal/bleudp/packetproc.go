@@ -24,7 +24,7 @@ import (
 //`解码上行数据使用`
 //hello ack消息处理
 func procHelloAck(ctx context.Context, jsoninfo packets.JsonUdpInfo, devEui string) {
-	globallogger.Log.Infof("<procHelloAck> : devEui: %s start proc hello msg", devEui)
+	globallogger.Log.Infof("<procHelloAck> : devEui: %s start proc hello msg\n", devEui)
 	newJsonInfo := packets.JsonUdpInfo{}
 	reMsgHeader := packets.MessageHeader{
 		Version:           jsoninfo.MessageHeader.Version,
@@ -41,10 +41,9 @@ func procHelloAck(ctx context.Context, jsoninfo packets.JsonUdpInfo, devEui stri
 }
 
 //此事devEUI可以表示为网关插卡+物联网模块
-//压入redis当中是字节数组，走json编码格式
 func procIotModuleStatus(ctx context.Context, jsoninfo packets.JsonUdpInfo, devEui string) {
 	var err error
-	globallogger.Log.Infof("<procIotModuleStatus> : devEui: %s start proc iotmodule status msg", devEui)
+	globallogger.Log.Infof("<procIotModuleStatus> : devEui: %s start proc iotmodule status msg\n", devEui)
 	cacheKey := globalutils.CreateCacheKey(globalconstants.GwIotModuleCachePrefie, jsoninfo.MessageBody.GwMac, jsoninfo.MessageBody.ModuleID)
 	moduleId, _ := strconv.ParseUint(jsoninfo.MessageBody.ModuleID, 16, 16)
 	moduleStatus, _ := strconv.ParseUint(jsoninfo.MessageBody.TLV.TLVPayload.IotModuleStatus, 16, 16)
@@ -58,7 +57,7 @@ func procIotModuleStatus(ctx context.Context, jsoninfo packets.JsonUdpInfo, devE
 		_, err = globalredis.RedisCache.Get(ctx, cacheKey).Result()
 		if err != nil {
 			if err != redis.Nil {
-				globallogger.Log.Errorf("<procIotModuleStatus>: devEui: %s redis has error %v", devEui, err)
+				globallogger.Log.Errorf("<procIotModuleStatus>: devEui: %s redis has error %v\n", devEui, err)
 				return
 			}
 		}
@@ -66,15 +65,15 @@ func procIotModuleStatus(ctx context.Context, jsoninfo packets.JsonUdpInfo, devE
 	} else {
 		_, err = globalmemo.BleFreeCache.Get([]byte(cacheKey))
 		if err != nil {
-			globallogger.Log.Errorf("<procIotModuleStatus>: devEui: %s memo get value has error %v", devEui, err)
+			globallogger.Log.Errorf("<procIotModuleStatus>: devEui: %s memo get value has error %v\n", devEui, err)
 			return
 		}
 		err = globalmemo.BleFreeCache.Set([]byte(cacheKey), byteIotModuleInfo, int(globalconstants.TTLDuration.Seconds()))
 	}
 	if err != nil {
-		globallogger.Log.Errorf("<procIotModuleStatus>: devEui: %s set cache has error %v", devEui, err)
+		globallogger.Log.Errorf("<procIotModuleStatus>: devEui: %s set cache has error %v\n", devEui, err)
 	} else {
-		globallogger.Log.Infof("<procIotModuleStatus> : devEui: %s update iotmodule status success", devEui)
+		globallogger.Log.Infof("<procIotModuleStatus> : devEui: %s update iotmodule status success\n", devEui)
 	}
 }
 
@@ -164,6 +163,7 @@ func SendDownMessage(data []byte, devEui, mac string) {
 //连接|断联以后才会有连接状态 首次情况下肯定没有
 //`收到连接报文的时候还需要重新设置设备相关连接状态`
 func procBleBoardCast(ctx context.Context, jsoninfo packets.JsonUdpInfo, devEui string) {
+	globallogger.Log.Infof("<procBleBoardCast> DevEuiL %s start deal ble boardcast message", devEui)
 	var (
 		devCacheByte []byte
 		devCacheStr  string
@@ -219,22 +219,98 @@ func procBleBoardCast(ctx context.Context, jsoninfo packets.JsonUdpInfo, devEui 
 			}
 			devCacheByte, err = json.Marshal(devInfo)
 			if err != nil {
-				globallogger.Log.Errorf("<procBleBoardCast> DevEui %s the memo msg can't compress data %v", devEui, err)
+				globallogger.Log.Errorf("<procBleBoardCast> DevEui %s the memo msg can't compress data %v\n", devEui, err)
 				return
 			}
 		} else {
 			err = json.Unmarshal(devCacheByte, &devInfo)
 			if err != nil {
-				globallogger.Log.Errorf("<procBleBoardCast> DevEui %s the memo msg can't resolve %v", devEui, err)
+				globallogger.Log.Errorf("<procBleBoardCast> DevEui %s the memo msg can't resolve %v\n", devEui, err)
 				return
 			}
 			devInfo.TimeStamp = time.Now()
 			devCacheByte, err = json.Marshal(devInfo)
 			if err != nil {
-				globallogger.Log.Errorf("<procBleBoardCast> DevEui %s the memo msg can't resolve data %v", devEui, err)
+				globallogger.Log.Errorf("<procBleBoardCast> DevEui %s the memo msg can't resolve data %v\n", devEui, err)
 				return
 			}
 		}
 		globalmemo.BleFreeCacheDevInfo.Set([]byte(jsoninfo.MessageAppBody.TLV.TLVPayload.DevMac), devCacheByte, 0) //刷新和写入
 	}
+}
+
+//处理应答信息
+func procBleResponse(ctx context.Context, jsonInfo packets.JsonUdpInfo, devEui string) {
+	globallogger.Log.Infof("<procBleBoardCast> DevEui %s start deal ble response message\n", devEui)
+	switch jsonInfo.MessageAppHeader.Type {
+	case packets.TLVConnectRespMsg:
+		procBleConnResponse(ctx, jsonInfo, devEui)
+	default:
+		globallogger.Log.Errorf("<procBleResponse>: Ble DevEui:%s received unrecognized  message type%s:\n", devEui, jsonInfo.MessageAppHeader.Type)
+	}
+}
+
+//处理连接应答
+//处理应答需要pop数据
+//MTU交换、PHY协商操作,暂时省略
+func procBleConnResponse(ctx context.Context, jsonInfo packets.JsonUdpInfo, devEui string) {
+	globallogger.Log.Infof("<procBleConnResponse> DevEui %s start deal ble connect response message\n", devEui)
+	if jsonInfo.MessageAppBody.ErrorCode != packets.Success {
+		globallogger.Log.Errorf("<procBleConnResponse> DevEui %s has an error %v\n", devEui, packets.GetResult(jsonInfo.MessageAppBody.ErrorCode, packets.English).String())
+		globalconstants.ConnectionInfoChan <- globalstruct.ResultMessage{Code: globalconstants.HTTP_CODE_ERROR, Message: packets.GetResult(jsonInfo.MessageAppBody.ErrorCode, packets.Chinese).String()}
+		return
+	}
+	curSN, _ := strconv.ParseInt(jsonInfo.MessageAppHeader.SN, 16, 16)
+	if CheckUpMessageFrame(ctx, jsonInfo.MessageAppBody.TLV.TLVPayload.DevMac, int(curSN)) != globalconstants.TERMINAL_CORRECT {
+		return //消息响应校对，若校准正确则继续执行，否则抛出
+	}
+	var (
+		terminal globalstruct.TerminalInfo
+		strInfo  string
+		byteInfo []byte
+		err      error
+	)
+	if config.C.General.UseRedis {
+		strInfo, err = globalredis.RedisCache.HGet(ctx, globalconstants.BleDevInfoCachePrefix, jsonInfo.MessageAppBody.TLV.TLVPayload.DevMac).Result()
+		if err != nil {
+			if err != redis.Nil {
+				globallogger.Log.Errorf("<procBleConnResponse> DevEui %s has redis error %v\n", devEui, err)
+				globalconstants.ConnectionInfoChan <- globalstruct.ResultMessage{Code: globalconstants.HTTP_CODE_ERROR, Message: globalconstants.ERROR_CACHE_EXCEPTION}
+			} else {
+				globalconstants.ConnectionInfoChan <- globalstruct.ResultMessage{Code: globalconstants.HTTP_CODE_ERROR, Message: globalconstants.ERROR_CACHE_ABSENCE}
+			}
+			return
+		}
+		byteInfo = []byte(strInfo)
+	} else {
+		byteInfo, err = globalmemo.BleFreeCacheDevInfo.Get([]byte(jsonInfo.MessageAppBody.TLV.TLVPayload.DevMac))
+		if err != nil {
+			globallogger.Log.Errorf("<procBleConnResponse> DevEui %s has cache error %v\n", devEui, err)
+			globalconstants.ConnectionInfoChan <- globalstruct.ResultMessage{Code: globalconstants.HTTP_CODE_ERROR, Message: globalconstants.ERROR_CACHE_ABSENCE}
+			return
+		}
+	}
+	err = json.Unmarshal(byteInfo, &terminal)
+	if err != nil {
+		globallogger.Log.Errorf("<procBleConnResponse> DevEui %s has data change error %v\n", devEui, err)
+		globalconstants.ConnectionInfoChan <- globalstruct.ResultMessage{Code: globalconstants.HTTP_CODE_ERROR, Message: globalconstants.ERROR_DATA_CHANGE}
+		return
+	}
+	connStatu, err1 := strconv.ParseInt(jsonInfo.MessageAppBody.TLV.TLVPayload.ConnStatus, 16, 8)
+	if err1 != nil {
+		globallogger.Log.Errorf("<procBleConnResponse> DevEui %s conn data change error %v\n", devEui, err1)
+		return
+	}
+	terminal.ConnectStatus = uint8(connStatu)
+	cacheInfo, err2 := json.Marshal(terminal)
+	if err2 != nil {
+		globallogger.Log.Errorf("<procBleConnResponse> DevEui %s data convert json error %v\n", devEui, err2)
+		return
+	}
+	if config.C.General.UseRedis { //此处不处理错误
+		globalredis.RedisCache.HSet(ctx, globalconstants.BleDevInfoCachePrefix, jsonInfo.MessageAppBody.TLV.TLVPayload.DevMac, cacheInfo)
+	} else {
+		globalmemo.BleFreeCacheDevInfo.Set([]byte(jsonInfo.MessageAppBody.TLV.TLVPayload.DevMac), cacheInfo, 0)
+	}
+	globalconstants.ConnectionInfoChan <- globalstruct.ResultMessage{Code: globalconstants.HTTP_CODE_SUCCESS, Message: globalconstants.HTTP_MESSAGE_SUCESS}
 }

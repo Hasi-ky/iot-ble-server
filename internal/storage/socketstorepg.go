@@ -26,13 +26,26 @@ func createTables() {
 			globallogger.Log.Errorln("<createTables>: postgres createModels ", err)
 		}
 	}()
-	DB().Exec(`CREATE TABLE IF NOT EXISTS iot_ble_socketinfo (id SERIAL PRIMARY KEY, gwmac TEXT  NOT NULL UNIQUE, family TEXT, ipaddr TEXT, ipport INTEGER, updatetime TIMESTAMP)`)
+	DB().Exec(`CREATE TABLE IF NOT EXISTS iot_ble_socketinfo (
+		id SERIAL PRIMARY KEY, 
+		gwmac TEXT  NOT NULL UNIQUE, 
+		family TEXT, 
+		ipaddr TEXT, 
+		ipport INTEGER, 
+		updatetime TIMESTAMP)`)
+	DB().Exec(`CREATE TABLE IF NOT EXISTS iot_ble_serviceinfo (
+		id SERIAL PRIMARY KEY, 
+		devEui VARCHAR(255) NOT NULL UNIQUE,
+		primaryService SMALLINT NOT NULL,
+		uuidService SMALLINT NOT NULL,
+		handleService SMALLINT NOT NULL,
+		devMac VARCHAR(12) NOT NULL)`)
 	//db.Exec(`CREATE TABLE IF NOT EXISTS iot_ble_socketinfo (id SERIAL PRIMARY KEY, gwmac TEXT(12), family TEXT, ipaddr TEXT, ipport INTEGER, updatetime TIMESTAMP)`)
 }
 
 //`len(args) 1` gwmac | `2` gwmac module id |
 func FindSocketByGwMac(gwMac string) (*globalstruct.SocketInfo, error) {
 	var socketInfo *globalstruct.SocketInfo
-	err := db.Select(&socketInfo, `SELECT * FROM iot_ble_socketinfo WHERE gwmac = `, gwMac)
+	err := db.Select(&socketInfo, `SELECT * FROM iot_ble_socketinfo WHERE gwmac = ?`, gwMac)
 	return socketInfo, err
 }

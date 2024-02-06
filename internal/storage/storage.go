@@ -5,8 +5,10 @@ import (
 	"crypto/tls"
 	"time"
 
+	"iot-ble-server/global/globalconstants"
 	"iot-ble-server/global/globalmemo"
 	"iot-ble-server/global/globalredis"
+	"iot-ble-server/global/globalstruct"
 	"iot-ble-server/internal/config"
 
 	"github.com/jmoiron/sqlx"
@@ -70,11 +72,13 @@ func Setup(ctx context.Context, c config.Config) error {
 	globalredis.RedisCache = redisClient
 	globalmemo.MemoCacheDev = cmap.New()
 	globalmemo.MemoCacheGw = cmap.New()
+	globalconstants.ConnectionInfoChan = make(chan globalstruct.ResultMessage)
 	createTables()
 	return nil
 }
 
 func redisKeepAlive(ctx context.Context) {
+	log.Info("<redisKeepAlive>: start Redis keepalive")
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 	for {

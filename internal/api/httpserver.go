@@ -59,5 +59,6 @@ func handleHttpGetMethod(ctx *gin.Context) {
 func RegistryBleHttpApi(r *gin.RouterGroup) {
 	r.DELETE("/device/", deleteDev)  //批量删除终端
 	r.POST("/device/connect", connectDev)
+	r.GET("/device/", searchMainService)
 }
 

@@ -41,8 +41,7 @@ func Execute() {
 }
 
 func initConfig() {
-	//cfgFile = "D:\\Code\\iot-ble-server\\packaging\\files\\iot-ble-server.toml"
-	cfgFile = ""
+	cfgFile = "D:\\Code\\iot-ble-server\\packaging\\files\\iot-ble-server.toml"
 	if cfgFile != "" {
 		b, err := ioutil.ReadFile(cfgFile)
 		if err != nil {
