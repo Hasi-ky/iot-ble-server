@@ -46,6 +46,7 @@ const (
 	BYTE_STR_ONE     int = 1
 	BYTE_STR_TWO     int = 2
 	BYTE_STR_FOUR    int = 4
+	BYTE_STR_EIGHT   int = 8
 	BYTE_STR_TWELVE  int = 12
 	BYTE_STR_SIXTEEN int = 16
 )
@@ -77,6 +78,7 @@ const (
 	ERROR_DATA_CHANGE       = "数据转化错误"
 	ERROR_CACHE_ABSENCE     = "缓存库缺少对应数据"
 	ERROR_DATA_GENERATEDOWN = "下行数据生成失败"
+	ERROR_DATA_TIMEOUT      = "超时等待"
 
 	ERROR_CACHE_EXCEPTION = "缓存库出现异常"
 )
@@ -87,4 +89,19 @@ const (
 	TERMINAL_DELAY     int = 1
 	TERMINAL_EXCEPTION int = -1
 	TERMINAL_ADVANCE   int = 2
+)
+
+//服务与特征
+const (
+	DEV_SERVICE           = "service"
+	DEV_CHARACTER         = "character"
+	DEV_CHARACTER_DEFAULT = 0x3f3f //二字节默认值
+)
+
+//MQTT消息队列
+const (
+	TopicV3GatewayNetworkIn    = "v3/gateway/network/in"
+	TopicV3GatewayNetworkInAck = "v3/gateway/network/in/ack"
+	TopicV3GatewayTelemetry    = "v3/gateway/telemetry"
+	TopicV3GatewayRPC          = "v3/gateway/rpc"
 )

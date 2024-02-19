@@ -274,8 +274,8 @@ func ResendMessage(ctx context.Context, frameSN, reSendTimes int, devMac, gwMac 
 
 //异步方法， 自旋等待,在下发消息前，需要从currentMap中取到对应消息队列
 //redis就传key下来 curQueue
-//方法仅针对终端，因为网关应当不是一发一收
-func SendMsgBeforeDown(ctx context.Context, sendBytes []byte, frameSN int, devMac, gwMac, msgType string) {
+//方法仅针对终端，因为网关应当不是一发一收 针对插卡
+func SendMsgBeforeDown(ctx context.Context, sendBytes []byte, frameSN int, devEui, gwMac, msgType string) {
 	curMemo := storage.NodeCache{
 		FrameSN:   frameSN,
 		TimeStamp: time.Now(),
@@ -283,63 +283,63 @@ func SendMsgBeforeDown(ctx context.Context, sendBytes []byte, frameSN int, devMa
 	}
 	cache, err := json.Marshal(curMemo)
 	if err != nil {
-		globallogger.Log.Errorf("<SendMsgBeforeDown>: devEui: %s data generate failed %v\n", devMac, err)
+		globallogger.Log.Errorf("<SendMsgBeforeDown>: devEui: %s data generate failed %v\n", devEui, err)
 		return
 	}
 	if config.C.General.UseRedis {
-		_, errPre := globalredis.RedisCache.RPush(ctx, devMac, cache).Result()
+		_, errPre := globalredis.RedisCache.RPush(ctx, devEui, cache).Result()
 		if errPre != nil {
-			globallogger.Log.Errorf("<SendMsgBeforeDown>: devEui: %s redis can't work %v\n", devMac, errPre)
+			globallogger.Log.Errorf("<SendMsgBeforeDown>: devEui: %s redis can't work %v\n", devEui, errPre)
 			return
 		}
 		for {
-			queueByte, err := globalredis.RedisCache.LIndex(ctx, devMac, 0).Result()
+			queueByte, err := globalredis.RedisCache.LIndex(ctx, devEui, 0).Result()
 			if err != nil {
-				globallogger.Log.Errorf("<SendMsgBeforeDown>: devEui: %s redis has error %v, frameSN sendDown failed\n", devMac, err)
+				globallogger.Log.Errorf("<SendMsgBeforeDown>: devEui: %s redis has error %v, frameSN sendDown failed\n", devEui, err)
 				return
 			}
 			var headNode storage.NodeCache
 			err = json.Unmarshal([]byte(queueByte), &headNode)
 			if err != nil {
-				globallogger.Log.Errorf("<SendMsgBeforeDown>: devEui: %s data has error %v, frameSN sendDown failed\n", devMac, err)
+				globallogger.Log.Errorf("<SendMsgBeforeDown>: devEui: %s data has error %v, frameSN sendDown failed\n", devEui, err)
 				return
 			}
 			if headNode.FrameSN == frameSN {
 				if globalutils.CompareTimeIsExpire(time.Now(), headNode.TimeStamp, globalconstants.LimitMessageTime) {
-					globallogger.Log.Errorf("<SendMsgBeforeDown>: devEui: %s queue has timeOut, frameSN sendDown failed\n", devMac)
-					globalredis.RedisCache.Del(ctx, devMac)
+					globallogger.Log.Errorf("<SendMsgBeforeDown>: devEui: %s queue has timeOut, frameSN sendDown failed\n", devEui)
+					globalredis.RedisCache.Del(ctx, devEui)
 				} else {
-					SendDownMessage(sendBytes, devMac, gwMac)
-					go ResendMessage(ctx, frameSN, 0, devMac, gwMac, sendBytes)
+					SendDownMessage(sendBytes, devEui, gwMac)
+					go ResendMessage(ctx, frameSN, 0, devEui, gwMac, sendBytes)
 				}
 				break
 			}
-			globallogger.Log.Warnf("<SendMsgBeforeDown>: devEui: %s wait to send down message, current frame is %v\n", devMac, frameSN)
+			globallogger.Log.Warnf("<SendMsgBeforeDown>: devEui: %s wait to send down message, current frame is %v\n", devEui, frameSN)
 			time.Sleep(time.Microsecond * 500) //自旋等待下发
 		}
 	} else {
 		var curQueue *storage.CQueue
-		if tempQueue, ok := globalmemo.MemoCacheDev.Get(devMac); ok {
+		if tempQueue, ok := globalmemo.MemoCacheDev.Get(devEui); ok {
 			curQueue = tempQueue.(*storage.CQueue)
 		}
 		curQueue.Enqueue(curMemo)
 		for {
-			curQueue, ok := globalmemo.MemoCacheDev.Get(devMac)
+			curQueue, ok := globalmemo.MemoCacheDev.Get(devEui)
 			if !ok { //缺少下发数据
-				globallogger.Log.Errorf("<SendMsgBeforeDown>: devEui: %s memo has error, frameSN sendDown failed\n", devMac)
+				globallogger.Log.Errorf("<SendMsgBeforeDown>: devEui: %s memo has error, frameSN sendDown failed\n", devEui)
 				return
 			}
 			if curQueue.(*storage.CQueue).Peek().FrameSN == frameSN {
 				if globalutils.CompareTimeIsExpire(time.Now(), curQueue.(*storage.CQueue).Peek().TimeStamp, globalconstants.LimitMessageTime) {
-					globallogger.Log.Errorf("<SendMsgBeforeDown>: devEui: %s queue has timeOu, frameSN sendDown failed\n", devMac)
-					globalmemo.MemoCacheDev.Remove(devMac)
+					globallogger.Log.Errorf("<SendMsgBeforeDown>: devEui: %s queue has timeOu, frameSN sendDown failed\n", devEui)
+					globalmemo.MemoCacheDev.Remove(devEui)
 				} else {
-					SendDownMessage(sendBytes, devMac, gwMac)
-					go ResendMessage(ctx, frameSN, 0, devMac, gwMac, sendBytes)
+					SendDownMessage(sendBytes, devEui, gwMac)
+					go ResendMessage(ctx, frameSN, 0, devEui, gwMac, sendBytes)
 				}
 				break
 			}
-			globallogger.Log.Warnf("<SendMsgBeforeDown>: devEui: %s wait %d message to send down", devMac, frameSN)
+			globallogger.Log.Warnf("<SendMsgBeforeDown>: devEui: %s wait %d message to send down", devEui, frameSN)
 			time.Sleep(time.Microsecond * 500)
 		}
 	}
@@ -372,7 +372,13 @@ func dfsForAllTLV(data []byte, restore *[]packets.TLV, index int) {
 			tempTLV.TLVPayload.Primary = hex.EncodeToString(append(data[:0:0], data[i+4:i+5]...))
 			tempTLV.TLVPayload.ReserveOne = hex.EncodeToString(append(data[:0:0], data[i+5:i+6]...))
 			tempTLV.TLVPayload.Handle = hex.EncodeToString(append(data[:0:0], data[i+6:i+8]...))
-			tempTLV.TLVPayload.UUID = hex.EncodeToString(append(data[:0:0], data[i+8:]...))
+			tempTLV.TLVPayload.UUID = hex.EncodeToString(append(data[:0:0], data[i+8:i+int(tempLen)]...))
+		case packets.TLVCharacteristicMsg:
+			tempTLV.TLVPayload.Properties = hex.EncodeToString(append(data[:0:0], data[i+4:i+5]...))
+			tempTLV.TLVPayload.ReserveOne = hex.EncodeToString(append(data[:0:0], data[i+5:i+6]...))
+			tempTLV.TLVPayload.ServiceHandle = hex.EncodeToString(append(data[:0:0], data[i+6:i+8]...))
+			tempTLV.TLVPayload.CharHandle = hex.EncodeToString(append(data[:0:0], data[i+8:i+10]...))
+			tempTLV.TLVPayload.UUID = hex.EncodeToString(append(data[:0:0], data[i+10:i+int(tempLen)]...))
 		case packets.TLVCharReqMsg:
 			tempTLV.TLVPayload.Properties = hex.EncodeToString(append(data[:0:0], data[i+4:i+5]...))
 			tempTLV.TLVPayload.ReserveOne = hex.EncodeToString(append(data[:0:0], data[i+5:i+6]...))
@@ -481,7 +487,7 @@ func GetDevResponseTLV(data []byte, index int) (res packets.TLV) {
 //正对消息、落后消息，超前不存在
 // 网关不需要
 // -1 出现错误 0 正对  1 落后 2超前不存在
-func CheckUpMessageFrame(ctx context.Context, devMac string, frameSN int) (resCode int) {
+func CheckUpMessageFrame(ctx context.Context, frameKey string, frameSN int) (resCode int) {
 	resCode = globalconstants.TERMINAL_CORRECT
 	var (
 		frameInfo storage.NodeCache
@@ -492,38 +498,59 @@ func CheckUpMessageFrame(ctx context.Context, devMac string, frameSN int) (resCo
 		ok        bool
 	)
 	if config.C.General.UseRedis {
-		cacheStr, err = globalredis.RedisCache.LIndex(ctx, devMac, 0).Result() //解读完就弹出
+		cacheStr, err = globalredis.RedisCache.LIndex(ctx, frameKey, 0).Result() //解读完就弹出
 		if err != nil && err != redis.Nil {
-			globallogger.Log.Errorf("<CheckUpMessageFrame> DevEui %s get redis error %v\n", devMac, err)
+			globallogger.Log.Errorf("<CheckUpMessageFrame> DevEui %s get redis error %v\n", frameKey, err)
 			resCode = globalconstants.TERMINAL_EXCEPTION
 			return
 		}
 		cache = []byte(cacheStr)
 		err = json.Unmarshal([]byte(cache), &frameInfo)
 		if err != nil {
-			globallogger.Log.Errorf("<CheckUpMessageFrame> DevEui %s data change error %v\n", devMac, err)
+			globallogger.Log.Errorf("<CheckUpMessageFrame> DevEui %s data change error %v\n", frameKey, err)
 			resCode = globalconstants.TERMINAL_EXCEPTION
 			return
 		}
 	} else {
-		queue, ok = globalmemo.MemoCacheDev.Get(devMac)
+		queue, ok = globalmemo.MemoCacheDev.Get(frameKey)
 		if !ok {
-			globallogger.Log.Errorf("<CheckUpMessageFrame> DevEui %s get memo cache error %v\n", devMac, err)
+			globallogger.Log.Errorf("<CheckUpMessageFrame> DevEui %s get memo cache error %v\n", frameKey, err)
 			resCode = globalconstants.TERMINAL_EXCEPTION
 			return
 		}
 		frameInfo = queue.(*storage.CQueue).Peek()
 	}
 	if frameInfo.FrameSN < frameSN { //缓存落后，当前数据超前
+		globallogger.Log.Errorf("<CheckUpMessageFrame> DevEui %s cache is out\n", frameKey)
 		resCode = globalconstants.TERMINAL_ADVANCE
 	} else if frameInfo.FrameSN > frameSN {
+		globallogger.Log.Errorf("<CheckUpMessageFrame> DevEui %s message is out\n", frameKey)
 		resCode = globalconstants.TERMINAL_DELAY //终端消息来的滞后
 	} else {
 		if config.C.General.UseRedis {
-			globalredis.RedisCache.LPop(ctx, devMac)
+			globalredis.RedisCache.LPop(ctx, frameKey)
 		} else {
 			queue.(*storage.CQueue).Dequeue()
 		}
 	}
 	return
+}
+
+//通用处理应答For Ble
+//bool表示是否继续执行
+func DealWithResponseBle(ctx context.Context, linkSN, appSN, methodName, errorCode, devEui string) bool {
+	globallogger.Log.Infof("<%s> DevEui %s start deal ble mainservice response message\n", methodName, devEui)
+	if errorCode != packets.Success {
+		globallogger.Log.Errorf("<%s> DevEui %s has an error %v\n", devEui, packets.GetResult(errorCode, packets.English).String())
+		return false
+	}
+	curLinkSN, _ := strconv.ParseInt(linkSN, 16, 32)
+	curAppSN, _ := strconv.ParseInt(appSN, 16, 16)
+	verifyLinkFrame := CheckUpMessageFrame(ctx, devEui, int(curLinkSN))
+	verifyAppFrame := CheckUpMessageFrame(ctx, devEui, int(curAppSN))
+	if verifyLinkFrame != globalconstants.TERMINAL_CORRECT || verifyAppFrame != globalconstants.TERMINAL_CORRECT { //目前仅后面
+		globallogger.Log.Errorf("<%s> DevEui %s has an frame is error verifyLinkFrame = %v and verifyAppFrame = %v\n", devEui, verifyLinkFrame, verifyAppFrame)
+		return false
+	}
+	return true
 }

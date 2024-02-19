@@ -72,6 +72,7 @@ func Setup(ctx context.Context, c config.Config) error {
 	globalredis.RedisCache = redisClient
 	globalmemo.MemoCacheDev = cmap.New()
 	globalmemo.MemoCacheGw = cmap.New()
+	globalmemo.MemoCacheScanTimeOut = cmap.New()
 	globalconstants.ConnectionInfoChan = make(chan globalstruct.ResultMessage)
 	createTables()
 	return nil

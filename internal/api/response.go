@@ -22,8 +22,14 @@ func (c ConnectResponse) Type() string {
 	return "连接"
 }
 
-//
-type MainServiceResponse struct {
+//暂不配置回复内容
+type ScanResponse struct {
 	Result
-
 }
+//
+// type MainServiceResponse struct {
+// 	Result
+
+// }
+
+

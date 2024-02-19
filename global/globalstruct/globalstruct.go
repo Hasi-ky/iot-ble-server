@@ -47,6 +47,17 @@ type DevConnection struct {
 	SupervisionWindow uint16 `form:"supervisionWindow" json:"supervisionWindow" binding:"supervisionWindow"`
 }
 
+//扫描所需参数
+type ScanInfo struct {
+	EnableScan   uint8  `form:"enableScan" json:"enableScan" binding:"enableScan"`
+	ScanType     uint8  `form:"scanType" json:"scanType" binding:"scanType"`
+	ScanInterval uint16 `form:"scanInterval" json:"scanInterval" binding:"scanInterval"`
+	ScanWindow   uint16 `form:"scanWindow" json:"scanWindow" binding:"scanWindow"`
+	ScanTimeout  uint16 `form:"ScanTimeout" json:"ScanTimeout" binding:"ScanTimeout"`
+	GwMac        string `form:"gwMac"  json:"gwMac" binding:"gwMac"`
+	IotModuleId  uint16 `form:"iotModuleId" json:"iotModuleId" binding:"iotModuleId"`
+}
+
 //响应web界面端
 type ResultMessage struct {
 	Code    int         `json:"code"`
@@ -54,11 +65,40 @@ type ResultMessage struct {
 	Message string      `json:"message"`
 }
 
-//服务消息
+//设备主服务消息
 type ServiceInfo struct {
-	DevEui         string `json:"devEui" db:"devEui"` //上述三键合一, 唯一标定
-	PrimaryService uint8  `json:"primaryService" db:"primaryService"`
+	PrimaryService bool   `json:"primaryService" db:"primaryService"` //是否为主服务
 	UUIDService    uint16 `json:"uuidService" db:"uuidService"`
 	HandleService  uint16 `json:"handleService" db:"handleService"`
 	DevMac         string `json:"devMac" db:"devMac"`
+}
+
+//handle请求
+type CharacterInfo struct {
+	DevMac      string
+	StartHandle string
+	EndHandle   string
+}
+
+//RPCIotware
+type RPCIotware struct {
+	Device string `json:"device"`
+	Data   string `json:"data"`
+}
+
+//TelemetryIotware
+type TelemetryIotware struct {
+	Device string `json:"device"`
+	Data   string `json:"data"`
+}
+
+//ack
+type NetworkInAckIotware struct {
+	Device string `json:"device"`
+	OK     bool   `json:"isok"`
+}
+
+//networkIn
+type NetworkInIotware struct {
+	Device string `json:"device"`
 }

@@ -9,6 +9,7 @@ import (
 	"iot-ble-server/internal/crontab"
 	"iot-ble-server/internal/device"
 	"iot-ble-server/internal/packets"
+	"iot-ble-server/internal/rpc"
 	"iot-ble-server/internal/storage"
 	"os"
 	"os/signal"
@@ -31,6 +32,7 @@ func run(cmd *cobra.Command, args []string) error {
 		setDescriptors,
 		printStartMessage,
 		setupStorage,
+		startBleMqtt,
 		startBleUdp,
 		startHttpServer,
 		startDevKeepAlive,
@@ -91,6 +93,13 @@ func setupStorage(ctx context.Context) error {
 		return errors.Wrap(err, "setup storage error")
 	}
 
+	return nil
+}
+
+func startBleMqtt(ctx context.Context) error {
+	if err := rpc.Start(ctx); err != nil {
+		return errors.Wrap(err, "start mqtt service error")
+	}
 	return nil
 }
 

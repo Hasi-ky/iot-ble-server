@@ -35,6 +35,8 @@ type Config struct {
 	} `mapstructure:"redis"`
 
 	MQTTConfig struct {
+		MqttHost             string        `mapstructure:"mqtt_host"`
+		MqttPort             string           `mapstructure:"mqtt_port"`
 		Username             string        `mapstructure:"username"`
 		Password             string        `mapstructure:"password"`
 		MaxReconnectInterval time.Duration `mapstructure:"max_reconnect_interval"`
