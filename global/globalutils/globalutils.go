@@ -1,8 +1,10 @@
 package globalutils
 
 import (
+	"context"
 	"iot-ble-server/global/globalconstants"
 	"iot-ble-server/global/globallogger"
+	"iot-ble-server/global/globalredis"
 	"strconv"
 	"strings"
 	"time"
@@ -65,4 +67,26 @@ func InsertString(str, insert string, index int) string {
 	}
 	pre, tail := str[:index], str[index:]
 	return pre + insert + tail
+}
+
+// redis scan
+func AllKeyScan(ctx context.Context, patter string) []string {
+	var (
+		cursor uint64
+		keys []string
+		res  []string
+		err error
+	)
+	for {
+		res, cursor, err = globalredis.RedisCache.Scan(ctx, cursor, "patter", 100).Result()
+		if err != nil {
+			globallogger.Log.Errorln("<AllKeyScan> has error", err)
+		}
+		keys = append(keys, res...)
+		// 如果 cursor 为0，说明遍历完成
+		if cursor == 0 {
+			break
+		}
+	}
+	return keys
 }

@@ -15,14 +15,16 @@ var (
 	MaxMessageFourLimit           = 0x3f3f3f3f //消息数上限 4 字节
 	MaxMessageTwoLimit            = 0x3f3f     //消息数上线 2字节
 
-	GwSocketCachePrefix    = "gw:server:socket:"
-	BleDevCachePrefix      = "ble:server:dev:"
-	BleDevInfoCachePrefix  = "ble:server:infodev"
+	GwSocketCachePrefix      = "gw:server:socket"
+	BleDevCacheMessagePrefix = "ble:server:dev" //下行消息前缀，后缀终端信息
+	BleDevCacheConnPrefix    = "ble:server:dev:conn"
+
+	BleDevInfoCachePrefix  = "ble:server:infodev" //存储的是当前终端对应最优网关信息，然后就可以通过这个最优网关信息进行数连接
 	CacheSeparator         = ":"
-	GwIotModuleCachePrefie = "gw:server:iotstatus:"
-	BleSendDownQueue       = "ble:dev:down:queue:" //后接终端mac
-	BleRedisSNTransfer     = "ble:sn:transfer:"
-	GwRedisSNTransfer      = "gw:sn:transfer:" //网关的transfer
+	GwIotModuleCachePrefie = "gw:server:iotstatus"
+	BleSendDownQueue       = "ble:dev:down:queue" //后接终端mac
+	BleRedisSNTransfer     = "ble:sn:transfer"
+	GwRedisSNTransfer      = "gw:sn:transfer" //网关的transfer
 
 	LimitMessageTime = time.Hour //消息截至过期时间
 	TTLDuration      = time.Hour * 7 * 24
@@ -86,9 +88,8 @@ const (
 //终端帧校验
 const (
 	TERMINAL_CORRECT   int = 0
-	TERMINAL_DELAY     int = 1
+	TERMINAL_ERROR     int = 1
 	TERMINAL_EXCEPTION int = -1
-	TERMINAL_ADVANCE   int = 2
 )
 
 //服务与特征
@@ -104,4 +105,17 @@ const (
 	TopicV3GatewayNetworkInAck = "v3/gateway/network/in/ack"
 	TopicV3GatewayTelemetry    = "v3/gateway/telemetry"
 	TopicV3GatewayRPC          = "v3/gateway/rpc"
+)
+
+//暂定连接参数
+const (
+	BLE_CONN_DEV_ADDR_TYPE = 1
+	BLE_CONN_OPTYPE        = 1
+	BLE_CONN_SCAN_TYPE     = 1
+	BLE_CONN_SCAN_INTERVAL = 10
+	BLE_CONN_SCAN_WINDOWS  = 10
+	BLE_CONN_SCAN_TIMEOUT  = 0
+	BLE_CONN_INTERVAL      = 6
+	BLE_CONN_LATENCY       = 0
+	BLE_CONN_TIMEOUT       = 6
 )

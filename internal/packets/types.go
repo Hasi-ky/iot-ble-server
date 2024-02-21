@@ -57,13 +57,13 @@ const (
 	IotModuleRset         string = "0202"
 	IotModuleStatusChange string = "0203"
 
-	BleRequest        string = "0301"
-	BleConfirm        string = "0301"
-	BleResponse       string = "0302"
-	BleGetConnDevList string = "0303"
-	BleCharacteristic string = "0304"
-	BleBoardcast      string = "0305"
-	BleTerminalEvent  string = "0306"
+	BleRequest              string = "0301"
+	BleConfirm              string = "0301"
+	BleResponse             string = "0302"
+	BleGetConnDevList       string = "0303"
+	BleCharacteristicNotice string = "0304"
+	BleBoardcast            string = "0305"
+	BleTerminalEvent        string = "0306"
 )
 
 //`TLV`

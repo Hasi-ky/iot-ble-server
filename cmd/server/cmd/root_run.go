@@ -7,9 +7,8 @@ import (
 	"iot-ble-server/internal/bleudp"
 	"iot-ble-server/internal/config"
 	"iot-ble-server/internal/crontab"
-	"iot-ble-server/internal/device"
+	"iot-ble-server/internal/mqtt"
 	"iot-ble-server/internal/packets"
-	"iot-ble-server/internal/rpc"
 	"iot-ble-server/internal/storage"
 	"os"
 	"os/signal"
@@ -35,7 +34,6 @@ func run(cmd *cobra.Command, args []string) error {
 		startBleMqtt,
 		startBleUdp,
 		startHttpServer,
-		startDevKeepAlive,
 		startCrontab,
 	}
 
@@ -97,7 +95,7 @@ func setupStorage(ctx context.Context) error {
 }
 
 func startBleMqtt(ctx context.Context) error {
-	if err := rpc.Start(ctx); err != nil {
+	if err := mqtt.Start(ctx); err != nil {
 		return errors.Wrap(err, "start mqtt service error")
 	}
 	return nil
@@ -117,12 +115,7 @@ func startHttpServer(ctx context.Context) error {
 	return nil
 }
 
-func startDevKeepAlive(ctx context.Context) error {
-	if err := device.KeepAlive(); err != nil {
-		return errors.Wrap(err, "start devices keep alive error")
-	}
-	return nil
-}
+ 
 
 //定时任务启动
 func startCrontab(ctx context.Context) error {

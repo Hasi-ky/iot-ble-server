@@ -2,21 +2,40 @@ package bleudp
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/hex"
 	"errors"
 	"iot-ble-server/global/globalconstants"
-	"iot-ble-server/global/globallogger"
-	"iot-ble-server/global/globalmemo"
 	"iot-ble-server/global/globalredis"
 	"iot-ble-server/global/globalstruct"
 	"iot-ble-server/global/globaltransfersn"
 	"iot-ble-server/global/globalutils"
 	"iot-ble-server/internal/config"
 	"iot-ble-server/internal/packets"
-	"strconv"
-
-	"github.com/redis/go-redis/v9"
+	"strings"
 )
+//重构标记
+
+//生成特征配置请求  暂行
+func GenerateCharacterConfJsonInfo(ctx context.Context, terminalInfo globalstruct.TerminalInfo, nodeChar globalstruct.ServiceCharacterNode) (jsonInfo packets.JsonUdpInfo, err error) {
+	jsonInfo.MessageHeader, err = GenerateMessageHeader(ctx, terminalInfo.GwMac, packets.BleRequest)
+	if err != nil {
+		return
+	}
+	jsonInfo.MessageBody, err = GenerateMessageBody(packets.BleRequest, terminalInfo)
+	if err != nil {
+		return
+	}
+	jsonInfo.MessageAppHeader, err = GenerateMessageAppHeader(ctx, packets.BleRequest, terminalInfo.GwMac+terminalInfo.IotModuleId)
+	if err != nil {
+		return
+	}
+	jsonInfo.MessageAppBody, err = GenerateMessageAppBody(packets.TLVCharConfReqMsg, terminalInfo.TerminalMac, nodeChar)
+	if err != nil {
+		return
+	}
+	jsonInfo.PendCtrl = globalconstants.CtrlAllMsg
+	return
+}
 
 //生成主服务发现,单设备
 func GenerateMainServiceFindJsonInfo(ctx context.Context, terminalInfo globalstruct.TerminalInfo) (jsonInfo packets.JsonUdpInfo, err error) {
@@ -28,11 +47,32 @@ func GenerateMainServiceFindJsonInfo(ctx context.Context, terminalInfo globalstr
 	if err != nil {
 		return
 	}
-	jsonInfo.MessageAppHeader, err = GenerateMessageAppHeader(ctx, packets.BleRequest, terminalInfo.GwMac+globalutils.ConvertDecimalToHexStr(int(terminalInfo.IotModuleId), globalconstants.BYTE_STR_FOUR))
+	jsonInfo.MessageAppHeader, err = GenerateMessageAppHeader(ctx, packets.BleRequest, terminalInfo.GwMac+terminalInfo.IotModuleId)
 	if err != nil {
 		return
 	}
 	jsonInfo.MessageAppBody, err = GenerateMessageAppBody(packets.TLVMainServiceReqMsg, terminalInfo.TerminalMac)
+	if err != nil {
+		return
+	}
+	jsonInfo.PendCtrl = globalconstants.CtrlAllMsg
+	return
+}
+
+func GenerateMainServiceFindUUIDJsonInfo(ctx context.Context, terminalInfo globalstruct.TerminalInfo, uuid string) (jsonInfo packets.JsonUdpInfo, err error) {
+	jsonInfo.MessageHeader, err = GenerateMessageHeader(ctx, terminalInfo.GwMac, packets.BleRequest)
+	if err != nil {
+		return
+	}
+	jsonInfo.MessageBody, err = GenerateMessageBody(packets.BleRequest, terminalInfo)
+	if err != nil {
+		return
+	}
+	jsonInfo.MessageAppHeader, err = GenerateMessageAppHeader(ctx, packets.BleRequest, terminalInfo.GwMac+terminalInfo.IotModuleId)
+	if err != nil {
+		return
+	}
+	jsonInfo.MessageAppBody, err = GenerateMessageAppBody(packets.TLVMainServiceByUUIDReqMsg, terminalInfo.TerminalMac)
 	if err != nil {
 		return
 	}
@@ -50,7 +90,7 @@ func GenerateCharacterFind(ctx context.Context, terminalInfo globalstruct.Termin
 	if err != nil {
 		return
 	}
-	jsonInfo.MessageAppHeader, err = GenerateMessageAppHeader(ctx, packets.BleRequest, terminalInfo.GwMac+globalutils.ConvertDecimalToHexStr(int(terminalInfo.IotModuleId), globalconstants.BYTE_STR_FOUR))
+	jsonInfo.MessageAppHeader, err = GenerateMessageAppHeader(ctx, packets.BleRequest, terminalInfo.GwMac+terminalInfo.IotModuleId)
 	if err != nil {
 		return
 	}
@@ -74,7 +114,7 @@ func GenerateDevConnJsonInfo(ctx context.Context, terminalInfo globalstruct.Term
 	if err != nil {
 		return
 	}
-	jsonInfo.MessageAppHeader, err = GenerateMessageAppHeader(ctx, packets.BleRequest, terminalInfo.GwMac+globalutils.ConvertDecimalToHexStr(int(terminalInfo.IotModuleId), globalconstants.BYTE_STR_FOUR))
+	jsonInfo.MessageAppHeader, err = GenerateMessageAppHeader(ctx, packets.BleRequest, terminalInfo.GwMac+terminalInfo.IotModuleId)
 	if err != nil {
 		return
 	}
@@ -153,7 +193,7 @@ func GenerateMessageBody(msgType string, bodyInfo interface{}) (resultJson packe
 	case packets.BleRequest:
 		if curInfo, ok := bodyInfo.(globalstruct.TerminalInfo); ok {
 			resultJson.GwMac = curInfo.GwMac
-			resultJson.ModuleID = globalutils.ConvertDecimalToHexStr(int(curInfo.IotModuleId), globalconstants.BYTE_STR_FOUR)
+			resultJson.ModuleID = curInfo.IotModuleId
 		} else if curInfo, ok := bodyInfo.(globalstruct.ScanInfo); ok {
 			resultJson.GwMac = curInfo.GwMac
 			resultJson.ModuleID = globalutils.ConvertDecimalToHexStr(int(curInfo.IotModuleId), globalconstants.BYTE_STR_FOUR)
@@ -207,10 +247,10 @@ func GenerateMessageAppHeader(ctx context.Context, appMsgType string,
 }
 
 //应用消息生成
-func GenerateMessageAppBody(TLVMsgType string, args interface{}) (resultJson packets.MessageAppBody, err error) {
+func GenerateMessageAppBody(TLVMsgType string, args ...interface{}) (resultJson packets.MessageAppBody, err error) {
 	switch TLVMsgType {
 	case packets.TLVConnectMsg: //28字节
-		devConn := args.(globalstruct.DevConnection)
+		devConn := args[0].(globalstruct.DevConnection)
 		resultJson.TLV.TLVMsgType = packets.TLVConnectMsg
 		resultJson.TLV.TLVLen = globalutils.ConvertDecimalToHexStr(28, globalconstants.BYTE_STR_FOUR) //固定长度
 		resultJson.TLV.TLVPayload.ReserveOne = globalutils.ConvertDecimalToHexStr(0, globalconstants.BYTE_STR_TWO)
@@ -227,7 +267,7 @@ func GenerateMessageAppBody(TLVMsgType string, args interface{}) (resultJson pac
 		resultJson.TLV.TLVPayload.ConnLatency = globalutils.ConvertDecimalToHexStr(int(devConn.ConnLatency), globalconstants.BYTE_STR_FOUR)
 		resultJson.TLV.TLVPayload.SupervisionWindow = globalutils.ConvertDecimalToHexStr(int(devConn.SupervisionWindow), globalconstants.BYTE_STR_FOUR)
 	case packets.TLVScanMsg: //12字节
-		scanInfo := args.(globalstruct.ScanInfo)
+		scanInfo := args[0].(globalstruct.ScanInfo)
 		resultJson.TLV.TLVMsgType = packets.TLVScanMsg
 		resultJson.TLV.TLVLen = globalutils.ConvertDecimalToHexStr(12, globalconstants.BYTE_STR_FOUR) //固定长度
 		resultJson.TLV.TLVPayload.ScanAble = globalutils.ConvertDecimalToHexStr(int(scanInfo.EnableScan), globalconstants.BYTE_STR_TWO)
@@ -237,60 +277,122 @@ func GenerateMessageAppBody(TLVMsgType string, args interface{}) (resultJson pac
 		resultJson.TLV.TLVPayload.ScanWindow = globalutils.ConvertDecimalToHexStr(int(scanInfo.ScanWindow), globalconstants.BYTE_STR_FOUR)
 		resultJson.TLV.TLVPayload.ScanTimeout = globalutils.ConvertDecimalToHexStr(int(scanInfo.ScanTimeout), globalconstants.BYTE_STR_FOUR)
 	case packets.TLVMainServiceReqMsg:
-		devMac := args.(string)
+		devMac := args[0].(string)
 		resultJson.TLV.TLVPayload.DevMac = devMac
 	case packets.TLVCharReqMsg:
-		charInfo := args.(globalstruct.CharacterInfo)
+		charInfo := args[0].(globalstruct.CharacterInfo)
 		resultJson.TLV.TLVPayload.DevMac = charInfo.DevMac
 		resultJson.TLV.TLVPayload.StartHandle = charInfo.StartHandle
 		resultJson.TLV.TLVPayload.EndHandle = charInfo.EndHandle
+	case packets.TLVCharConfReqMsg: //特殊处理
+		devMac := args[0].(globalstruct.TerminalInfo).TerminalMac
+		node := args[1].(globalstruct.ServiceCharacterNode)
+		resultJson.TLV.TLVMsgType = packets.TLVCharConfReqMsg
+		resultJson.TLV.TLVLen = globalutils.ConvertDecimalToHexStr(16, globalconstants.BYTE_STR_FOUR) //固定长度
+		resultJson.TLV.TLVPayload.DevMac = devMac
+		resultJson.TLV.TLVPayload.CCCDHandle = node.CCCDHanle
+		resultJson.TLV.TLVPayload.CharHandle = node.CharacterHandle
+		resultJson.TLV.TLVPayload.CCCDHandleValue = "01" //写死为notify  针对配置
 	default:
 		return resultJson, errors.New("unrecognized BLEMessage")
 	}
 	return
 }
 
-//特征发现
-func ResumeCharacterFind(ctx context.Context, devMac, startHandle, endHandle string) error {
+/// =============================解析=====================================
+// 封装的链路消息编码字节数字
+// `ctrl` 控制四部分编码生成
+func EnCodeForDownUdpMessage(jsonInfo packets.JsonUdpInfo) []byte {
 	var (
-		err      error
-		terminal globalstruct.TerminalInfo
-		byteInfo []byte
-		strInfo  string 
+		enCodeResHeader, enCodeResBody, enCodeResAppMsg, enCodeResAppMsgBody, encodeResAppMsgBodyTLV strings.Builder
+		encodeStr, tempStr, tempAppStr, tempAppTLVStr                                                string
 	)
-	if config.C.General.UseRedis {
-		strInfo, err = globalredis.RedisCache.HGet(ctx, globalconstants.BleDevInfoCachePrefix, devMac).Result()
-		if err != nil {
-			if err != redis.Nil {
-				globallogger.Log.Errorf("<ResumeCharacterFind> DevEui %s has redis error %v\n", devMac, err)
-			} else {
-				globallogger.Log.Errorf("<ResumeCharacterFind> DevEui %s absence terminal information %v\n", devMac, err)
-			}
-			return errors.New("cache has error")
-		}
-		byteInfo = []byte(strInfo)
+	if jsonInfo.PendCtrl&1 == 1 {
+		enCodeResHeader.WriteString(jsonInfo.MessageHeader.Version)
+		enCodeResHeader.WriteString(jsonInfo.MessageHeader.LinkMsgFrameSN)
+		enCodeResHeader.WriteString(jsonInfo.MessageHeader.LinkMsgType)
+		enCodeResHeader.WriteString(jsonInfo.MessageHeader.OpType)
+	}
+	if (jsonInfo.PendCtrl>>1)&1 == 1 {
+		enCodeResBody.WriteString(jsonInfo.MessageBody.GwMac)
+		enCodeResBody.WriteString(jsonInfo.MessageBody.ModuleID)
+	}
+	if (jsonInfo.PendCtrl>>2)&1 == 1 {
+		enCodeResAppMsg.WriteString(jsonInfo.MessageAppHeader.SN)
+		enCodeResAppMsg.WriteString(jsonInfo.MessageAppHeader.CtrlField)
+		enCodeResAppMsg.WriteString(jsonInfo.MessageAppHeader.FragOffset)
+		enCodeResAppMsg.WriteString(jsonInfo.MessageAppHeader.Type)
+		enCodeResAppMsg.WriteString(jsonInfo.MessageAppHeader.OpType)
+	}
+	if (jsonInfo.PendCtrl>>3)&1 == 1 {
+		enCodeResAppMsgBody.WriteString(jsonInfo.MessageAppBody.ErrorCode)
+		enCodeResAppMsgBody.WriteString(jsonInfo.MessageAppBody.RespondFrame)
 
-	} else {
-		byteInfo, err = globalmemo.BleFreeCacheDevInfo.Get([]byte(devMac))
-		if err != nil {
-			globallogger.Log.Errorf("<ResumeCharacterFind> DevEui %s has cache error %v\n", devMac, err)
-			return errors.New("cache has error")
-		}
+		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVMsgType)
+		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVLen)
+		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVPayload.ScanAble)
+		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVPayload.ReserveOne)
+		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVPayload.AddrType)
+		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVPayload.DevMac)
+		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVPayload.ServiceUUID)
+		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVPayload.StartHandle)
+		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVPayload.EndHandle)
+		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVPayload.OpType)
+		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVPayload.ReserveTwo)
+		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVPayload.ParaLength)
+		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVPayload.ScanType)
+		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVPayload.ServiceHandle)
+		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVPayload.CharHandle)
+		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVPayload.CharacterUUID)
+		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVPayload.CCCDHandle)
+		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVPayload.FeatureCfg)
+		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVPayload.CharHandleValue)
+		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVPayload.CCCDHandleValue)
+		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVPayload.ScanPhys)
+		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVPayload.ReserveThree)
+		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVPayload.ParaValue)
+		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVPayload.ScanInterval)
+		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVPayload.ScanWindow)
+		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVPayload.ScanTimeout)
+		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVPayload.ConnInterval)
+		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVPayload.ConnLatency)
+		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVPayload.ConnTimeout)
 	}
-	err = json.Unmarshal(byteInfo, &terminal)
-	if err != nil {
-		return err
+	switch jsonInfo.PendCtrl {
+	case globalconstants.CtrlLinkedMsgHeader:
+		tempStr = enCodeResHeader.String()
+		encodeStr = globalutils.InsertString(tempStr,
+			globalutils.ConvertDecimalToHexStr(len(tempStr)+globalconstants.EncodeInsertLen, globalconstants.EncodeInsertLen),
+			globalconstants.EncodeInsertIndex)
+	case globalconstants.CtrlLinkedMsgHeadWithBoy:
+		tempStr = enCodeResHeader.String() + enCodeResBody.String()
+		tempStr = globalutils.InsertString(tempStr,
+			globalutils.ConvertDecimalToHexStr(len(tempStr)+globalconstants.EncodeInsertLen, globalconstants.EncodeInsertLen),
+			globalconstants.EncodeInsertIndex)
+		encodeStr = tempStr + enCodeResBody.String()
+	case globalconstants.CtrlLinkedMsgWithMsgAppHeader:
+		tempStr = enCodeResHeader.String() + enCodeResBody.String()
+		tempAppStr = enCodeResAppMsg.String()
+		tempAppStr = globalutils.InsertString(tempAppStr,
+			globalutils.ConvertDecimalToHexStr(len(tempAppStr)+globalconstants.EncodeInsertLen, globalconstants.EncodeInsertLen),
+			globalconstants.EncodeInsertIndex)
+		tempStr = globalutils.InsertString(tempStr,
+			globalutils.ConvertDecimalToHexStr(len(tempAppStr)+len(tempStr)+globalconstants.EncodeInsertLen, globalconstants.EncodeInsertLen),
+			globalconstants.EncodeInsertIndex)
+		encodeStr = tempStr + tempAppStr
+	default:
+		tempStr = enCodeResHeader.String() + enCodeResBody.String()
+		tempAppStr = enCodeResAppMsg.String() + enCodeResAppMsgBody.String()
+		tempAppTLVStr = encodeResAppMsgBodyTLV.String()
+		tempAppTLVStr = globalutils.InsertString(tempAppTLVStr,
+			globalutils.ConvertDecimalToHexStr(len(tempAppTLVStr)+globalconstants.EncodeInsertLen, globalconstants.EncodeInsertLen),
+			globalconstants.EncodeInsertIndex)
+		tempAppStr = globalutils.ConvertDecimalToHexStr(len(tempAppTLVStr)+len(tempAppStr)+globalconstants.EncodeInsertLen, globalconstants.EncodeInsertLen) + tempAppStr
+		tempStr = globalutils.InsertString(tempStr,
+			globalutils.ConvertDecimalToHexStr(len(tempStr)+len(tempAppStr)+len(tempAppTLVStr)+globalconstants.EncodeInsertLen, globalconstants.EncodeInsertLen),
+			globalconstants.EncodeInsertIndex)
+		encodeStr = tempStr + tempAppStr + tempAppTLVStr
 	}
-	jsonInfo, err1 := GenerateCharacterFind(ctx, terminal, globalstruct.CharacterInfo{
-		DevMac: devMac,
-		StartHandle: startHandle,
-		EndHandle:  endHandle,
-	})
-	if err1 != nil {
-		return err1
-	}
-	byteToSend := EnCodeForDownUdpMessage(jsonInfo)
-	curSN, _ := strconv.ParseInt(jsonInfo.MessageAppHeader.SN, 16, 16)
-	SendMsgBeforeDown(ctx, byteToSend, int(curSN), jsonInfo.MessageBody.GwMac + jsonInfo.MessageBody.ModuleID, terminal.GwMac, packets.TLVConnectMsg)
-	return err
+	enCodeBytes, _ := hex.DecodeString(encodeStr)
+	return enCodeBytes
 }

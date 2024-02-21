@@ -15,7 +15,6 @@ import (
 	"iot-ble-server/internal/packets"
 	"iot-ble-server/internal/storage"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -79,22 +78,18 @@ func ParseMessageAppHeader(data []byte, offset *int) packets.MessageAppHeader {
 func ParseMessageBody(data []byte, msgType string, offset *int) (packets.MessageBody, error) {
 	msgBody := packets.MessageBody{}
 	var err error
+	msgBody.GwMac = hex.EncodeToString(append(data[:0:0], data[*offset:*offset+6]...))
+	msgBody.ModuleID = hex.EncodeToString(append(data[:0:0], data[*offset+6:*offset+8]...))
 	switch msgType {
 	case packets.GatewayDevInfo:
-		msgBody.GwMac = hex.EncodeToString(append(data[:0:0], data[*offset:*offset+6]...))
-		msgBody.ModuleID = hex.EncodeToString(append(data[:0:0], data[*offset+6:*offset+8]...))
 		msgBody.ErrorCode = hex.EncodeToString(append(data[:0:0], data[*offset+8:*offset+10]...))
 		msgBody.TLV.TLVMsgType = hex.EncodeToString(append(data[:0:0], data[*offset+10:*offset+12]...))
 		msgBody.TLV.TLVLen = hex.EncodeToString(append(data[:0:0], data[*offset+12:*offset+14]...))
 		msgBody.TLV.TLVPayload.TLVReserve = make([]packets.TLV, 0)
 		dfsForAllTLV(data, &msgBody.TLV.TLVPayload.TLVReserve, *offset+14)
 	case packets.IotModuleRset:
-		msgBody.GwMac = hex.EncodeToString(append(data[:0:0], data[*offset:*offset+6]...))
-		msgBody.ModuleID = hex.EncodeToString(append(data[:0:0], data[*offset+6:*offset+8]...))
 		msgBody.ErrorCode = hex.EncodeToString(append(data[:0:0], data[*offset+8:*offset+10]...))
 	case packets.IotModuleStatusChange:
-		msgBody.GwMac = hex.EncodeToString(append(data[:0:0], data[*offset:*offset+6]...))
-		msgBody.ModuleID = hex.EncodeToString(append(data[:0:0], data[*offset+6:*offset+8]...))
 		msgBody.TLV = packets.TLV{}
 		msgBody.TLV.TLVMsgType = hex.EncodeToString(append(data[:0:0], data[*offset+8:*offset+10]...))
 		msgBody.TLV.TLVLen = hex.EncodeToString(append(data[:0:0], data[*offset+10:*offset+12]...))
@@ -104,7 +99,9 @@ func ParseMessageBody(data []byte, msgType string, offset *int) (packets.Message
 			IotModuleChangeReason: hex.EncodeToString(append(data[:0:0], data[*offset+15:*offset+16]...)),
 		}
 	default:
-		err = errors.New("ParseMessageBody: from: " + msgBody.GwMac + " unable to recognize message type with " + msgType)
+		if msgType[0:2] != packets.TerminalManager { //非就ble消息特殊处理
+			err = errors.New("ParseMessageBody: from: " + msgBody.GwMac + " unable to recognize message type with " + msgType)
+		}
 	}
 	*offset = len(data)
 	return msgBody, err
@@ -126,158 +123,64 @@ func ParseMessageAppBody(data []byte, offset *int, devMac string, msgType string
 		parseMessageAppBody.DevSum = hex.EncodeToString(append(data[:0:0], data[*offset+2:*offset+4]...))
 		parseMessageAppBody.Reserve = hex.EncodeToString(append(data[:0:0], data[*offset+4:*offset+6]...))
 		parseMessageAppBody.TLV = GetDevResponseTLV(data, *offset+6)
-	case packets.BleCharacteristic:
-		parseMessageAppBody.ErrorCode = hex.EncodeToString(append(data[:0:0], data[*offset:*offset+2]...))
-	case packets.BleBoardcast, packets.BleTerminalEvent: //附加TLV无处理
+	case packets.BleCharacteristicNotice:
 		parseMessageAppBody.TLV = GetDevResponseTLV(data, *offset)
+	case packets.BleBoardcast, packets.BleTerminalEvent: //附加TLV无处理
+		dfsForAllTLV(data, &parseMessageAppBody.MultiTLV, *offset)
 	default:
 		err = errors.New("ParseMessageAppBody: from: " + devMac + " unable to recognize message type with " + parseMessageAppBody.TLV.TLVMsgType)
 	}
 	return parseMessageAppBody, err
 }
 
-/// =============================解析=====================================
-// 封装的链路消息编码字节数字
-// `ctrl` 控制四部分编码生成
-func EnCodeForDownUdpMessage(jsonInfo packets.JsonUdpInfo) []byte {
-	var (
-		enCodeResHeader, enCodeResBody, enCodeResAppMsg, enCodeResAppMsgBody, encodeResAppMsgBodyTLV strings.Builder
-		encodeStr, tempStr, tempAppStr, tempAppTLVStr                                                string
-	)
-	if jsonInfo.PendCtrl&1 == 1 {
-		enCodeResHeader.WriteString(jsonInfo.MessageHeader.Version)
-		enCodeResHeader.WriteString(jsonInfo.MessageHeader.LinkMsgFrameSN)
-		enCodeResHeader.WriteString(jsonInfo.MessageHeader.LinkMsgType)
-		enCodeResHeader.WriteString(jsonInfo.MessageHeader.OpType)
-	}
-	if (jsonInfo.PendCtrl>>1)&1 == 1 {
-		enCodeResBody.WriteString(jsonInfo.MessageBody.GwMac)
-		enCodeResBody.WriteString(jsonInfo.MessageBody.ModuleID)
-	}
-	if (jsonInfo.PendCtrl>>2)&1 == 1 {
-		enCodeResAppMsg.WriteString(jsonInfo.MessageAppHeader.SN)
-		enCodeResAppMsg.WriteString(jsonInfo.MessageAppHeader.CtrlField)
-		enCodeResAppMsg.WriteString(jsonInfo.MessageAppHeader.FragOffset)
-		enCodeResAppMsg.WriteString(jsonInfo.MessageAppHeader.Type)
-		enCodeResAppMsg.WriteString(jsonInfo.MessageAppHeader.OpType)
-	}
-	if (jsonInfo.PendCtrl>>3)&1 == 1 {
-		enCodeResAppMsgBody.WriteString(jsonInfo.MessageAppBody.ErrorCode)
-		enCodeResAppMsgBody.WriteString(jsonInfo.MessageAppBody.RespondFrame)
-
-		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVMsgType)
-		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVLen)
-		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVPayload.ScanAble)
-		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVPayload.ReserveOne)
-		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVPayload.AddrType)
-		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVPayload.DevMac)
-		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVPayload.UUID)
-		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVPayload.StartHandle)
-		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVPayload.EndHandle)
-		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVPayload.OpType)
-		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVPayload.ReserveTwo)
-		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVPayload.ParaLength)
-		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVPayload.ScanType)
-		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVPayload.Handle) //char handle ？
-		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVPayload.CCCDHandle)
-		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVPayload.FeatureCfg)
-		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVPayload.ValueHandle)
-		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVPayload.ScanPhys)
-		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVPayload.ReserveThree)
-		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVPayload.ParaValue)
-		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVPayload.ScanInterval)
-		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVPayload.ScanWindow)
-		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVPayload.ScanTimeout)
-		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVPayload.ConnInterval)
-		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVPayload.ConnLatency)
-		encodeResAppMsgBodyTLV.WriteString(jsonInfo.MessageAppBody.TLV.TLVPayload.ConnTimeout)
-	}
-	switch jsonInfo.PendCtrl {
-	case globalconstants.CtrlLinkedMsgHeader:
-		tempStr = enCodeResHeader.String()
-		encodeStr = globalutils.InsertString(tempStr,
-			globalutils.ConvertDecimalToHexStr(len(tempStr)+globalconstants.EncodeInsertLen, globalconstants.EncodeInsertLen),
-			globalconstants.EncodeInsertIndex)
-	case globalconstants.CtrlLinkedMsgHeadWithBoy:
-		tempStr = enCodeResHeader.String() + enCodeResBody.String()
-		tempStr = globalutils.InsertString(tempStr,
-			globalutils.ConvertDecimalToHexStr(len(tempStr)+globalconstants.EncodeInsertLen, globalconstants.EncodeInsertLen),
-			globalconstants.EncodeInsertIndex)
-		encodeStr = tempStr + enCodeResBody.String()
-	case globalconstants.CtrlLinkedMsgWithMsgAppHeader:
-		tempStr = enCodeResHeader.String() + enCodeResBody.String()
-		tempAppStr = enCodeResAppMsg.String()
-		tempAppStr = globalutils.InsertString(tempAppStr,
-			globalutils.ConvertDecimalToHexStr(len(tempAppStr)+globalconstants.EncodeInsertLen, globalconstants.EncodeInsertLen),
-			globalconstants.EncodeInsertIndex)
-		tempStr = globalutils.InsertString(tempStr,
-			globalutils.ConvertDecimalToHexStr(len(tempAppStr)+len(tempStr)+globalconstants.EncodeInsertLen, globalconstants.EncodeInsertLen),
-			globalconstants.EncodeInsertIndex)
-		encodeStr = tempStr + tempAppStr
-	default:
-		tempStr = enCodeResHeader.String() + enCodeResBody.String()
-		tempAppStr = enCodeResAppMsg.String() + enCodeResAppMsgBody.String()
-		tempAppTLVStr = encodeResAppMsgBodyTLV.String()
-		tempAppTLVStr = globalutils.InsertString(tempAppTLVStr,
-			globalutils.ConvertDecimalToHexStr(len(tempAppTLVStr)+globalconstants.EncodeInsertLen, globalconstants.EncodeInsertLen),
-			globalconstants.EncodeInsertIndex)
-		tempAppStr = globalutils.ConvertDecimalToHexStr(len(tempAppTLVStr)+len(tempAppStr)+globalconstants.EncodeInsertLen, globalconstants.EncodeInsertLen) + tempAppStr
-		tempStr = globalutils.InsertString(tempStr,
-			globalutils.ConvertDecimalToHexStr(len(tempStr)+len(tempAppStr)+len(tempAppTLVStr)+globalconstants.EncodeInsertLen, globalconstants.EncodeInsertLen),
-			globalconstants.EncodeInsertIndex)
-		encodeStr = tempStr + tempAppStr + tempAppTLVStr
-	}
-	enCodeBytes, _ := hex.DecodeString(encodeStr)
-	return enCodeBytes
-}
-
 // `frame` 帧序列 | `reSendTime` 发送次数 | `devEui` 唯一标识 标识消息队列 设备mac or 网关mac + module id | `curQueue` 消息队列 |
-func ResendMessage(ctx context.Context, frameSN, reSendTimes int, devMac, gwMac string, waitDown []byte) {
-	if reSendTimes >= 3 {
-		globallogger.Log.Errorf("<ResendMessage> : devEui: %s has issue with the current retransmission message device\n", devMac)
-		return
-	}
-	timer := time.NewTimer((time.Second * time.Duration(config.C.General.KeepAliveTime)))
-	defer timer.Stop()
-	<-timer.C
-	if config.C.General.UseRedis {
-		byteNode, err := globalredis.RedisCache.LIndex(ctx, devMac, 0).Result()
-		if err != nil {
-			if err != redis.Nil {
-				globallogger.Log.Errorf("<ResendMessage> :devEui:%s redis has error, %v\n", devMac, err)
-			}
-			return //空值就直接放弃
-		}
-		var curNode storage.NodeCache
-		err = json.Unmarshal([]byte(byteNode), &curNode)
-		if err != nil {
-			globallogger.Log.Errorf("<ResendMessage> :devEui:%s decode has error, %v\n", devMac, err)
-			return
-		}
-		globallogger.Log.Infof("<ResendMessage> : devEui: %s resend msg, the msg type is %s\n", devMac, curNode.MsgType)
-		if frameSN == curNode.FrameSN {
-			SendDownMessage(waitDown, devMac, gwMac)
-			go ResendMessage(ctx, frameSN, reSendTimes+1, devMac, gwMac, waitDown)
-		}
-	} else {
-		tempQueue, ok := globalmemo.MemoCacheDev.Get(devMac)
-		if ok {
-			curQueue := tempQueue.(*storage.CQueue)
-			if curQueue.Len() > 0 && frameSN == curQueue.Peek().FrameSN {
-				globallogger.Log.Warnf("<ResendMessage> : devEui: %s resend msg, the msg type is %s", devMac, curQueue.Peek().MsgType)
-				SendDownMessage(waitDown, devMac, gwMac)
-				go ResendMessage(ctx, frameSN, reSendTimes+1, devMac, gwMac, waitDown)
-			}
-		} //若不存在待下发的，就放弃重传操作
-	}
-}
+// func ResendMessage(ctx context.Context, frameSN, reSendTimes int, devMac, gwMac string, waitDown []byte) {
+// 	if reSendTimes >= 3 {
+// 		globallogger.Log.Errorf("<ResendMessage> : devEui: %s has issue with the current retransmission message device\n", devMac)
+// 		return
+// 	}
+// 	timer := time.NewTimer((time.Second * time.Duration(config.C.General.KeepAliveTime)))
+// 	defer timer.Stop()
+// 	<-timer.C
+// 	if config.C.General.UseRedis {
+// 		byteNode, err := globalredis.RedisCache.LIndex(ctx, devMac, 0).Result()
+// 		if err != nil {
+// 			if err != redis.Nil {
+// 				globallogger.Log.Errorf("<ResendMessage> :devEui:%s redis has error, %v\n", devMac, err)
+// 			}
+// 			return //空值就直接放弃
+// 		}
+// 		var curNode storage.NodeCache
+// 		err = json.Unmarshal([]byte(byteNode), &curNode)
+// 		if err != nil {
+// 			globallogger.Log.Errorf("<ResendMessage> :devEui:%s decode has error, %v\n", devMac, err)
+// 			return
+// 		}
+// 		globallogger.Log.Infof("<ResendMessage> : devEui: %s resend msg, the msg type is %s\n", devMac, curNode.MsgType)
+// 		if frameSN == curNode.FrameSN {
+// 			SendDownMessage(waitDown, devMac, gwMac)
+// 			go ResendMessage(ctx, frameSN, reSendTimes+1, devMac, gwMac, waitDown)
+// 		}
+// 	} else {
+// 		tempQueue, ok := globalmemo.MemoCacheDev.Get(devMac)
+// 		if ok {
+// 			curQueue := tempQueue.(*storage.CQueue)
+// 			if curQueue.Len() > 0 && frameSN == curQueue.Peek().FrameSN {
+// 				globallogger.Log.Warnf("<ResendMessage> : devEui: %s resend msg, the msg type is %s", devMac, curQueue.Peek().MsgType)
+// 				SendDownMessage(waitDown, devMac, gwMac)
+// 				go ResendMessage(ctx, frameSN, reSendTimes+1, devMac, gwMac, waitDown)
+// 			}
+// 		} //若不存在待下发的，就放弃重传操作
+// 	}
+// }
 
 //异步方法， 自旋等待,在下发消息前，需要从currentMap中取到对应消息队列
 //redis就传key下来 curQueue
-//方法仅针对终端，因为网关应当不是一发一收 针对插卡
+//方法仅针对终端，因为网关应当不是一发一收
+//终端消息 devEui = devMac | 网关与插卡 则是网关插卡与id
 func SendMsgBeforeDown(ctx context.Context, sendBytes []byte, frameSN int, devEui, gwMac, msgType string) {
 	curMemo := storage.NodeCache{
-		FrameSN:   frameSN,
+		FirstMark: devEui + strconv.Itoa(frameSN),
 		TimeStamp: time.Now(),
 		MsgType:   msgType,
 	}
@@ -286,62 +189,69 @@ func SendMsgBeforeDown(ctx context.Context, sendBytes []byte, frameSN int, devEu
 		globallogger.Log.Errorf("<SendMsgBeforeDown>: devEui: %s data generate failed %v\n", devEui, err)
 		return
 	}
-	if config.C.General.UseRedis {
-		_, errPre := globalredis.RedisCache.RPush(ctx, devEui, cache).Result()
-		if errPre != nil {
-			globallogger.Log.Errorf("<SendMsgBeforeDown>: devEui: %s redis can't work %v\n", devEui, errPre)
-			return
-		}
-		for {
-			queueByte, err := globalredis.RedisCache.LIndex(ctx, devEui, 0).Result()
-			if err != nil {
-				globallogger.Log.Errorf("<SendMsgBeforeDown>: devEui: %s redis has error %v, frameSN sendDown failed\n", devEui, err)
+	if len(devEui) == 12 { //终端信息需要特殊处理
+		listCacheKey := globalutils.CreateCacheKey(globalconstants.BleDevCacheMessagePrefix, devEui)
+		if config.C.General.UseRedis {
+			_, errPre := globalredis.RedisCache.RPush(ctx, listCacheKey, cache).Result()
+			if errPre != nil {
+				globallogger.Log.Errorf("<SendMsgBeforeDown>: devEui: %s redis can't work %v\n", devEui, errPre)
 				return
 			}
-			var headNode storage.NodeCache
-			err = json.Unmarshal([]byte(queueByte), &headNode)
-			if err != nil {
-				globallogger.Log.Errorf("<SendMsgBeforeDown>: devEui: %s data has error %v, frameSN sendDown failed\n", devEui, err)
-				return
-			}
-			if headNode.FrameSN == frameSN {
-				if globalutils.CompareTimeIsExpire(time.Now(), headNode.TimeStamp, globalconstants.LimitMessageTime) {
-					globallogger.Log.Errorf("<SendMsgBeforeDown>: devEui: %s queue has timeOut, frameSN sendDown failed\n", devEui)
-					globalredis.RedisCache.Del(ctx, devEui)
-				} else {
-					SendDownMessage(sendBytes, devEui, gwMac)
-					go ResendMessage(ctx, frameSN, 0, devEui, gwMac, sendBytes)
+			for {
+				queueByte, err := globalredis.RedisCache.LIndex(ctx, listCacheKey, 0).Result()
+				if err != nil {
+					globallogger.Log.Errorf("<SendMsgBeforeDown>: devEui: %s redis has error %v, frameSN sendDown failed\n", devEui, err)
+					return
 				}
-				break
+				var headNode storage.NodeCache
+				err = json.Unmarshal([]byte(queueByte), &headNode)
+				if err != nil {
+					globallogger.Log.Errorf("<SendMsgBeforeDown>: devEui: %s data has error %v, frameSN sendDown failed\n", devEui, err)
+					return
+				}
+				if headNode.FirstMark == devEui+strconv.Itoa(frameSN) {
+					if globalutils.CompareTimeIsExpire(time.Now(), headNode.TimeStamp, globalconstants.LimitMessageTime) {
+						globallogger.Log.Errorf("<SendMsgBeforeDown>: devEui: %s queue has timeOut, frameSN sendDown failed\n", devEui)
+						globalredis.RedisCache.Del(ctx, listCacheKey)
+					} else {
+						SendDownMessage(sendBytes, devEui, gwMac)
+						//暂时无消息重发，仅仅等待
+						//go ResendMessage(ctx, frameSN, 0, devEui, gwMac, sendBytes)
+					}
+					break
+				}
+				globallogger.Log.Warnf("<SendMsgBeforeDown>: devEui: %s wait to send down message, current frame is %v\n", devEui, frameSN)
+				time.Sleep(time.Microsecond * 500) //自旋等待下发
 			}
-			globallogger.Log.Warnf("<SendMsgBeforeDown>: devEui: %s wait to send down message, current frame is %v\n", devEui, frameSN)
-			time.Sleep(time.Microsecond * 500) //自旋等待下发
+		} else {
+			var curQueue *storage.CQueue
+			if tempQueue, ok := globalmemo.MemoCacheDev.Get(listCacheKey); ok {
+				curQueue = tempQueue.(*storage.CQueue)
+			}
+			curQueue.Enqueue(curMemo)
+			for {
+				curQueue, ok := globalmemo.MemoCacheDev.Get(listCacheKey)
+				if !ok { //缺少下发数据
+					globallogger.Log.Errorf("<SendMsgBeforeDown>: devEui: %s memo has error, frameSN sendDown failed\n", devEui)
+					return
+				}
+				if curQueue.(*storage.CQueue).Peek().FirstMark == devEui+strconv.Itoa(frameSN) { //等待下发超时
+					if globalutils.CompareTimeIsExpire(time.Now(), curQueue.(*storage.CQueue).Peek().TimeStamp, globalconstants.LimitMessageTime) {
+						globallogger.Log.Errorf("<SendMsgBeforeDown>: devEui: %s queue has timeOut, frameSN sendDown failed\n", devEui)
+						globalmemo.MemoCacheDev.Remove(listCacheKey)
+					} else {
+						SendDownMessage(sendBytes, listCacheKey, gwMac)
+						//go ResendMessage(ctx, frameSN, 0, devEui, gwMac, sendBytes)
+					}
+					break
+				}
+				globallogger.Log.Warnf("<SendMsgBeforeDown>: devEui: %s wait %d message to send down", devEui, frameSN)
+				time.Sleep(time.Microsecond * 500)
+			}
 		}
 	} else {
-		var curQueue *storage.CQueue
-		if tempQueue, ok := globalmemo.MemoCacheDev.Get(devEui); ok {
-			curQueue = tempQueue.(*storage.CQueue)
-		}
-		curQueue.Enqueue(curMemo)
-		for {
-			curQueue, ok := globalmemo.MemoCacheDev.Get(devEui)
-			if !ok { //缺少下发数据
-				globallogger.Log.Errorf("<SendMsgBeforeDown>: devEui: %s memo has error, frameSN sendDown failed\n", devEui)
-				return
-			}
-			if curQueue.(*storage.CQueue).Peek().FrameSN == frameSN {
-				if globalutils.CompareTimeIsExpire(time.Now(), curQueue.(*storage.CQueue).Peek().TimeStamp, globalconstants.LimitMessageTime) {
-					globallogger.Log.Errorf("<SendMsgBeforeDown>: devEui: %s queue has timeOu, frameSN sendDown failed\n", devEui)
-					globalmemo.MemoCacheDev.Remove(devEui)
-				} else {
-					SendDownMessage(sendBytes, devEui, gwMac)
-					go ResendMessage(ctx, frameSN, 0, devEui, gwMac, sendBytes)
-				}
-				break
-			}
-			globallogger.Log.Warnf("<SendMsgBeforeDown>: devEui: %s wait %d message to send down", devEui, frameSN)
-			time.Sleep(time.Microsecond * 500)
-		}
+		//插卡加网关的情况随意下发即可
+		SendDownMessage(sendBytes, devEui, gwMac)
 	}
 }
 
@@ -372,24 +282,35 @@ func dfsForAllTLV(data []byte, restore *[]packets.TLV, index int) {
 			tempTLV.TLVPayload.Primary = hex.EncodeToString(append(data[:0:0], data[i+4:i+5]...))
 			tempTLV.TLVPayload.ReserveOne = hex.EncodeToString(append(data[:0:0], data[i+5:i+6]...))
 			tempTLV.TLVPayload.Handle = hex.EncodeToString(append(data[:0:0], data[i+6:i+8]...))
-			tempTLV.TLVPayload.UUID = hex.EncodeToString(append(data[:0:0], data[i+8:i+int(tempLen)]...))
+			tempTLV.TLVPayload.ServiceUUID = hex.EncodeToString(append(data[:0:0], data[i+8:i+int(tempLen)]...))
 		case packets.TLVCharacteristicMsg:
 			tempTLV.TLVPayload.Properties = hex.EncodeToString(append(data[:0:0], data[i+4:i+5]...))
 			tempTLV.TLVPayload.ReserveOne = hex.EncodeToString(append(data[:0:0], data[i+5:i+6]...))
 			tempTLV.TLVPayload.ServiceHandle = hex.EncodeToString(append(data[:0:0], data[i+6:i+8]...))
 			tempTLV.TLVPayload.CharHandle = hex.EncodeToString(append(data[:0:0], data[i+8:i+10]...))
-			tempTLV.TLVPayload.UUID = hex.EncodeToString(append(data[:0:0], data[i+10:i+int(tempLen)]...))
+			tempTLV.TLVPayload.CharacterUUID = hex.EncodeToString(append(data[:0:0], data[i+10:i+int(tempLen)]...))
 		case packets.TLVCharReqMsg:
 			tempTLV.TLVPayload.Properties = hex.EncodeToString(append(data[:0:0], data[i+4:i+5]...))
 			tempTLV.TLVPayload.ReserveOne = hex.EncodeToString(append(data[:0:0], data[i+5:i+6]...))
 			tempTLV.TLVPayload.ServiceHandle = hex.EncodeToString(append(data[:0:0], data[i+6:i+8]...))
 			tempTLV.TLVPayload.CharHandle = hex.EncodeToString(append(data[:0:0], data[i+8:i+10]...))
-			tempTLV.TLVPayload.UUID = hex.EncodeToString(append(data[:0:0], data[i+10:]...))
+			tempTLV.TLVPayload.CharacterUUID = hex.EncodeToString(append(data[:0:0], data[i+10:]...))
 		case packets.TLVCharDescribeMsg:
 			tempTLV.TLVPayload.ServiceHandle = hex.EncodeToString(append(data[:0:0], data[i+4:i+6]...))
 			tempTLV.TLVPayload.CharHandle = hex.EncodeToString(append(data[:0:0], data[i+6:i+8]...))
 			tempTLV.TLVPayload.DescriptorHandle = hex.EncodeToString(append(data[:0:0], data[i+8:i+10]...))
-			tempTLV.TLVPayload.UUID = hex.EncodeToString(append(data[:0:0], data[i+10:]...))
+			tempTLV.TLVPayload.CharacterUUID = hex.EncodeToString(append(data[:0:0], data[i+10:i+int(tempLen)]...))
+		case packets.TLVBroadcastMsg:
+			tempTLV.TLVPayload.ReserveOne = hex.EncodeToString(append(data[:0:0], data[i+4:i+5]...))
+			tempTLV.TLVPayload.AddrType = hex.EncodeToString(append(data[:0:0], data[i+5:i+6]...))
+			tempTLV.TLVPayload.DevMac = hex.EncodeToString(append(data[:0:0], data[i+6:i+12]...))
+			tempTLV.TLVPayload.RSSI = hex.EncodeToString(append(data[:0:0], data[i+12:i+13]...))
+			tempTLV.TLVPayload.ADType = hex.EncodeToString(append(data[:0:0], data[i+13:i+14]...))
+			tempTLV.TLVPayload.NoticeContent = parseManufactureData(i+14, data)
+		case packets.TLVDisconnectMsg:
+			tempTLV.TLVPayload.DevMac = hex.EncodeToString(append(data[:0:0], data[i+4:i+10]...))
+			tempTLV.TLVPayload.Handle = hex.EncodeToString(append(data[:0:0], data[i+10:i+12]...))        //连接句柄
+			tempTLV.TLVPayload.DisConnReason = hex.EncodeToString(append(data[:0:0], data[i+12:i+14]...)) //断开事件原因
 		case packets.TLVGatewayTypeMsg:
 			tempTLV.TLVPayload.GwType = hex.EncodeToString(append(data[:0:0], data[i+4:i+int(tempLen)]...))
 		case packets.TLVGatewaySNMsg:
@@ -438,6 +359,10 @@ func GetDevResponseTLV(data []byte, index int) (res packets.TLV) {
 		res.TLVPayload.ErrorCode = hex.EncodeToString(append(data[:0:0], data[index+10:index+12]...))
 		res.TLVPayload.ServiceSum = hex.EncodeToString(append(data[:0:0], data[index+12:index+14]...))
 		dfsForAllTLV(data, &res.TLVPayload.TLVReserve, index+14)
+	case packets.TLVMainServiceByUUIDReqMsg:
+		res.TLVPayload.DevMac = hex.EncodeToString(append(data[:0:0], data[index+4:index+10]...))
+		res.TLVPayload.ErrorCode = hex.EncodeToString(append(data[:0:0], data[index+10:index+12]...))
+		dfsForAllTLV(data, &res.TLVPayload.TLVReserve, index+12)
 	case packets.TLVCharRespMsg:
 		res.TLVPayload.DevMac = hex.EncodeToString(append(data[:0:0], data[index+4:index+10]...))
 		res.TLVPayload.ServiceHandle = hex.EncodeToString(append(data[:0:0], data[index+10:index+12]...)) //服务handle
@@ -464,17 +389,12 @@ func GetDevResponseTLV(data []byte, index int) (res packets.TLV) {
 	case packets.TLVDeviceListMsg:
 		res.TLVPayload.DevMac = hex.EncodeToString(append(data[:0:0], data[index+4:index+10]...))
 		res.TLVPayload.Handle = hex.EncodeToString(append(data[:0:0], data[index+10:index+12]...))
-	case packets.TLVBroadcastMsg:
-		res.TLVPayload.ReserveOne = hex.EncodeToString(append(data[:0:0], data[index+4:index+5]...))
-		res.TLVPayload.AddrType = hex.EncodeToString(append(data[:0:0], data[index+5:index+6]...))
-		res.TLVPayload.DevMac = hex.EncodeToString(append(data[:0:0], data[index+6:index+12]...))
-		res.TLVPayload.RSSI = hex.EncodeToString(append(data[:0:0], data[index+12:index+13]...))
-		res.TLVPayload.ADType = hex.EncodeToString(append(data[:0:0], data[index+13:index+14]...))
-		res.TLVPayload.NoticeContent = hex.EncodeToString(append(data[:0:0], data[index+14:]...))
-	case packets.TLVDisconnectMsg:
+	case packets.TLVNotifyMsg:
 		res.TLVPayload.DevMac = hex.EncodeToString(append(data[:0:0], data[index+4:index+10]...))
-		res.TLVPayload.Handle = hex.EncodeToString(append(data[:0:0], data[index+10:index+12]...))        //连接句柄
-		res.TLVPayload.DisConnReason = hex.EncodeToString(append(data[:0:0], data[index+12:index+14]...)) //断开事件原因
+		res.TLVPayload.ReserveOne = hex.EncodeToString(append(data[:0:0], data[index+10:index+11]...))
+		res.TLVPayload.NoticeType = hex.EncodeToString(append(data[:0:0], data[index+11:index+12]...))
+		res.TLVPayload.CharHandle = hex.EncodeToString(append(data[:0:0], data[index+12:index+14]...))
+		res.TLVPayload.CharHandleValue = hex.EncodeToString(append(data[:0:0], data[index+12:]...))
 	default:
 		globallogger.Log.Errorf("<GetDevResponseTLV>: the corresponding message type cannot be recognized. please troubleshoot the error!")
 		return packets.TLV{}
@@ -487,6 +407,8 @@ func GetDevResponseTLV(data []byte, index int) (res packets.TLV) {
 //正对消息、落后消息，超前不存在
 // 网关不需要
 // -1 出现错误 0 正对  1 落后 2超前不存在
+
+//frameKey 表终端mac | 网关mac + id
 func CheckUpMessageFrame(ctx context.Context, frameKey string, frameSN int) (resCode int) {
 	resCode = globalconstants.TERMINAL_CORRECT
 	var (
@@ -520,12 +442,9 @@ func CheckUpMessageFrame(ctx context.Context, frameKey string, frameSN int) (res
 		}
 		frameInfo = queue.(*storage.CQueue).Peek()
 	}
-	if frameInfo.FrameSN < frameSN { //缓存落后，当前数据超前
+	if frameInfo.FirstMark != frameKey+strconv.Itoa(frameSN) { //数据不一致
 		globallogger.Log.Errorf("<CheckUpMessageFrame> DevEui %s cache is out\n", frameKey)
-		resCode = globalconstants.TERMINAL_ADVANCE
-	} else if frameInfo.FrameSN > frameSN {
-		globallogger.Log.Errorf("<CheckUpMessageFrame> DevEui %s message is out\n", frameKey)
-		resCode = globalconstants.TERMINAL_DELAY //终端消息来的滞后
+		resCode = globalconstants.TERMINAL_ERROR
 	} else {
 		if config.C.General.UseRedis {
 			globalredis.RedisCache.LPop(ctx, frameKey)
@@ -549,8 +468,26 @@ func DealWithResponseBle(ctx context.Context, linkSN, appSN, methodName, errorCo
 	verifyLinkFrame := CheckUpMessageFrame(ctx, devEui, int(curLinkSN))
 	verifyAppFrame := CheckUpMessageFrame(ctx, devEui, int(curAppSN))
 	if verifyLinkFrame != globalconstants.TERMINAL_CORRECT || verifyAppFrame != globalconstants.TERMINAL_CORRECT { //目前仅后面
-		globallogger.Log.Errorf("<%s> DevEui %s has an frame is error verifyLinkFrame = %v and verifyAppFrame = %v\n", devEui, verifyLinkFrame, verifyAppFrame)
+		globallogger.Log.Errorf("<%s> DevEui %s has an frame is error verifyLinkFrame = %v and verifyAppFrame = %v\n", devEui, curLinkSN, curAppSN)
 		return false
 	}
 	return true
+}
+
+//解析厂商数据
+func parseManufactureData(index int, data []byte) (manuRes packets.ManufactData) {
+	manuRes.Length = hex.EncodeToString(append(data[:0:0], data[index:index+1]...))
+	curLen, _ := strconv.ParseInt(manuRes.Length, 16, 8)
+	manuRes.Data.AdType = hex.EncodeToString(append(data[:0:0], data[index+1:index+2]...))
+	manuRes.Data.AdData.CompanyID = hex.EncodeToString(append(data[:0:0], data[index+2:index+4]...))
+	manuRes.Data.AdData.CompData.MsgType = hex.EncodeToString(append(data[:0:0], data[index+4:index+6]...))
+	switch manuRes.Data.AdData.CompData.MsgType {
+	case "0101", "0103":
+		manuRes.Data.AdData.CompData.DeviceData = hex.EncodeToString(append(data[:0:0], data[index+6:index+int(curLen)]...))
+	case "0102", "0104":
+		manuRes.Data.AdData.CompData.Device.DevType = hex.EncodeToString(append(data[:0:0], data[index+6:index+8]...))
+		manuRes.Data.AdData.CompData.Device.Addr = hex.EncodeToString(append(data[:0:0], data[index+8:index+14]...))
+		manuRes.Data.AdData.CompData.DeviceData = hex.EncodeToString(append(data[:0:0], data[index+14:index+int(curLen)]...))
+	}
+	return
 }

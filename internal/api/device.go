@@ -11,7 +11,6 @@ import (
 	"iot-ble-server/internal/bleudp"
 	"iot-ble-server/internal/config"
 	"iot-ble-server/internal/packets"
-	"iot-ble-server/internal/storage"
 	"strconv"
 	"time"
 
@@ -172,27 +171,29 @@ func FlushDevCacheInfo(ctx context.Context, devMac string) error {
 //终端主服务发现
 //传入的是终端设备的mac,目前支持单一终端处理
 //单纯进行查询，与连接过程中的主服务发现没有必要关联
-func searchMainService(ctx *gin.Context) {
-	globallogger.Log.Infof("<searchMainService> start search terminals main service\n")
-	req := ctx.Param("devMac")
-	var resultMessage = globalstruct.ResultMessage{
-		Message: globalconstants.HTTP_MESSAGE_SUCESS,
-	}
-	devToAllMianService, err := storage.FindDevMainService(req)
-	if err != nil {
-		globallogger.Log.Errorf("<searchMainService> devEui:[%s] can't read info from pg\n", req)
-		resultMessage.Code = globalconstants.HTTP_CODE_ERROR
-		resultMessage.Message = err.Error()
-		ctx.JSON(globalconstants.HTTP_CODE_EXCEPTION, resultMessage)
-		return
-	}
-	if len(devToAllMianService) == 0 { //数据库中不存再对应设备的主服务信息
-		//启动主服务发现指令
-		//查询缓存中对应设备的主服务信息，并封装起来
-	} else { //如何封装主服务信息至前端界面
+// func searchMainService(ctx *gin.Context) {
+// 	globallogger.Log.Infof("<searchMainService> start search terminals main service\n")
+// 	req := ctx.Param("devMac")
+// 	var resultMessage = globalstruct.ResultMessage{
+// 		Message: globalconstants.HTTP_MESSAGE_SUCESS,
+// 	}
+// 	devToAllMianService, err := storage.FindDevMainService(req)
+// 	if err != nil {
+// 		globallogger.Log.Errorf("<searchMainService> devEui:[%s] can't read info from pg\n", req)
+// 		resultMessage.Code = globalconstants.HTTP_CODE_ERROR
+// 		resultMessage.Message = err.Error()
+// 		ctx.JSON(globalconstants.HTTP_CODE_EXCEPTION, resultMessage)
+// 		return
+// 	}
+// 	if len(devToAllMianService) == 0 { //数据库中不存再对应设备的主服务信息
+// 		//启动主服务发现指令
+// 		//查询缓存中对应设备的主服务信息，并封装起来
+// 	} else { //如何封装主服务信息至前端界面
 
-	}
-}
+// 	}
+// }
+
+
 
 //扫描开启
 func scanDevStart(ctx *gin.Context) {

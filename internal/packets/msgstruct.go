@@ -47,6 +47,7 @@ type MessageBody struct {
 	ModuleID  string
 	ErrorCode string
 	TLV       TLV
+	MutiTLV   []TLV
 }
 
 // TotalLen | SN | CtrlField | FragOffset | AppMsgType | OpType
@@ -67,6 +68,7 @@ type MessageAppBody struct {
 	GwMac        string
 	Reserve      string
 	TLV          TLV
+	MultiTLV      []TLV
 }
 
 //appmsg payload
@@ -90,7 +92,8 @@ type TLVFeature struct {
 	IotModuleStatus       string
 	IotModuleChangeReason string
 	ErrorCode             string
-	UUID                  string
+	ServiceUUID           string
+	CharacterUUID         string
 	MajorID               string
 	MinorID               string
 	MeasurePower          string
@@ -105,8 +108,10 @@ type TLVFeature struct {
 	ConnStatus            string
 	CharHandle            string
 	CCCDHandle            string
+	ConnHandle            string
 	DescriptorHandle      string
-	ValueHandle           string
+	CharHandleValue       string
+	CCCDHandleValue       string
 	Handle                string
 	EndHandle             string
 	Event                 string
@@ -135,7 +140,34 @@ type TLVFeature struct {
 	Port                  string
 	Primary               string
 	Properties            string
-	NoticeType            string //通告类型
-	NoticeContent         string //通告内容
-	TLVReserve            []TLV  //携带TLV
+	NoticeType            string       //通告类型
+	NoticeContent         ManufactData //通告内容
+	TLVReserve            []TLV        //携带TLV
+}
+
+//广播报文中的厂商数据 -------
+type ManufactData struct {
+	Length string
+	Data   Data
+}
+
+type Data struct {
+	AdType string
+	AdData ADData
+}
+
+type ADData struct {
+	CompanyID string
+	CompData  CompanyData
+}
+
+type CompanyData struct {
+	MsgType    string
+	Device     DeviceID
+	DeviceData string
+}
+
+type DeviceID struct {
+	DevType string
+	Addr    string
 }

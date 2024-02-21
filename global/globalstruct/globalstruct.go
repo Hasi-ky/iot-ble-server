@@ -26,16 +26,24 @@ type TerminalInfo struct {
 	TerminalName  string    `json:"terminalName,omitempty"`
 	TerminalMac   string    `json:"terminalMac,omitempty"`
 	GwMac         string    `json:"gwMac,omitempty"`
-	IotModuleId   uint16    `json:"iotModuleId,omitempty"`
+	IotModuleId   string    `json:"iotModuleId,omitempty"`
 	RSSI          int8      `json:"rssi,omitempty"`
 	SupportConn   bool      `json:"supportConn,omitempty"`
-	ConnectStatus uint8     `json:"connectStatus,omitempty"`
+	ConnectStatus string    `json:"connectStatus,omitempty"`
 	TimeStamp     time.Time `json:"timestamp,omitempty"`
+	ConnHandle    string    `form:"connHandle" json:"connHandle" binding:"connHandle"`
 }
 
 //设备连接
+//连接成功以后存储下来
 type DevConnection struct {
 	DevMac            string `form:"devMac" json:"devMac" binding:"devMac"`
+	GwMac             string `form:"gwMac" json:"gwMac" binding:"gwMac"`
+	ModuleId          string `form:"moduleId" json:"moduleId" binding:"moduleId"`
+	ConnStatus        string `form:"connStatus" json:"connStatus" binding:"connStatus"`
+	ConnHandle        string `form:"connHandle" json:"connHandle" binding:"connHandle"`
+	PHY               string `form:"phy" json:"phy" binding:"phy"`
+	MTU               string `form:"mtu" json:"mtu" binding:"mtu"`
 	AddrType          uint8  `form:"addrType" json:"addrType" binding:"addrType"`
 	OpType            uint8  `form:"opType" json:"opType" binding:"opType"`
 	ScanType          uint8  `form:"scanType" json:"scanType" binding:"scanType"`
@@ -101,4 +109,14 @@ type NetworkInAckIotware struct {
 //networkIn
 type NetworkInIotware struct {
 	Device string `json:"device"`
+}
+
+//存服务特征的最终节点
+type ServiceCharacterNode struct {
+	CharUUID        string `json:"charUUID"`
+	CharacterHandle string `json:"characterHandle"` //
+	CharacterValue  string `json:"characterValue"`  //标准string存储方式
+	CCCDHanle       string `json:"cccdHandle"`      //
+	CCCDHanleValue  string `json:"cccdHandleValue"`
+	Properties      string `json:"properties"` //特征值属性位域
 }

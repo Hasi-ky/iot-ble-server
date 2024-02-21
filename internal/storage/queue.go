@@ -6,8 +6,9 @@ import (
 )
 
 //缓存点信息
+//针对终端
 type NodeCache struct {
-	FrameSN   int       `json:"frameSN"`
+	FirstMark   string       `json:"FirstMark"`  ///conbine with devmac + frame
 	TimeStamp time.Time `json:"timeStamp"`
 	MsgType   string    `json:"msgType"`
 }

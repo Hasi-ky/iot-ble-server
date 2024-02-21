@@ -15,8 +15,8 @@ import (
 	"iot-ble-server/internal/config"
 	"iot-ble-server/internal/packets"
 	"iot-ble-server/internal/storage"
-	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -29,7 +29,7 @@ func procHelloAck(ctx context.Context, jsoninfo packets.JsonUdpInfo, devEui stri
 	newJsonInfo := packets.JsonUdpInfo{}
 	reMsgHeader := packets.MessageHeader{
 		Version:           jsoninfo.MessageHeader.Version,
-		LinkMessageLength: "10",
+		LinkMessageLength: "0010",
 		LinkMsgFrameSN:    jsoninfo.MessageHeader.LinkMsgFrameSN,
 		LinkMsgType:       jsoninfo.MessageAppHeader.Type,
 		OpType:            packets.Response,
@@ -163,81 +163,62 @@ func SendDownMessage(data []byte, devEui, mac string) {
 //终端广播报文能处理, 唯一映射即可
 //连接|断联以后才会有连接状态 首次情况下肯定没有
 //`收到连接报文的时候还需要重新设置设备相关连接状态`
-func procBleBoardCast(ctx context.Context, jsoninfo packets.JsonUdpInfo, devEui string) {
+//暂时不使用redis进行记录
+func procBleBoardCast(ctx context.Context, jsonInfo packets.JsonUdpInfo, devEui string) {
 	globallogger.Log.Infof("<procBleBoardCast> DevEuiL %s start deal ble boardcast message", devEui)
-	var (
-		devCacheByte []byte
-		devCacheStr  string
-		devInfo      globalstruct.TerminalInfo
-		err          error
-	)
-	moduleId, _ := strconv.ParseUint(jsoninfo.MessageBody.ModuleID, 16, 16)
-	rssi, _ := strconv.ParseInt(jsoninfo.MessageBody.TLV.TLVPayload.RSSI, 16, 8)
-	if config.C.General.UseRedis {
-		devCacheStr, err = globalredis.RedisCache.HGet(ctx, globalconstants.BleDevInfoCachePrefix, jsoninfo.MessageAppBody.TLV.TLVPayload.DevMac).Result()
-		judgeNum := globalutils.JudgeGet(err)
-		if judgeNum == globalconstants.JudgeGetError {
-			globallogger.Log.Errorf("<procBleBoardCast> DevEui: %s redis has error %v\n", devEui, err)
-			return
-		} else if judgeNum == globalconstants.JudgeGetNil { //缺少数据压入
-			devInfo = globalstruct.TerminalInfo{ //支持连接应当在content内容中附带，默认不支持
-				TerminalName: jsoninfo.MessageAppBody.TLV.TLVPayload.DevMac,
-				TerminalMac:  jsoninfo.MessageAppBody.TLV.TLVPayload.DevMac,
-				GwMac:        jsoninfo.MessageBody.GwMac,
-				IotModuleId:  uint16(moduleId),
-				RSSI:         int8(rssi),
-				TimeStamp:    time.Now(),
-			}
-			devCacheByte, err = json.Marshal(devInfo)
-			if err != nil {
-				globallogger.Log.Errorf("<procBleBoardCast> DevEui %s the redis msg can't compress data %v\n", devEui, err)
-				return
-			}
-		} else { //更新
-			err = json.Unmarshal([]byte(devCacheStr), &devInfo)
-			if err != nil {
-				globallogger.Log.Errorf("<procBleBoardCast> DevEui %s the redis msg can't resolve %v\n", devEui, err)
-				return
-			}
-			devInfo.TimeStamp = time.Now()
-			devCacheByte, err = json.Marshal(devInfo)
-			if err != nil {
-				globallogger.Log.Errorf("<procBleBoardCast> DevEui %s the redis msg can't resolve data %v", devEui, err)
-				return
-			}
+	var curNode globalstruct.TerminalInfo
+	rssi, _ := strconv.ParseInt(jsonInfo.MessageBody.TLV.TLVPayload.RSSI, 16, 8)
+	devMac := jsonInfo.MessageBody.TLV.TLVPayload.DevMac
+	secondCacheKey := globalutils.CreateCacheKey(jsonInfo.MessageBody.GwMac, jsonInfo.MessageBody.ModuleID)
+	for _, curTLV := range jsonInfo.MessageAppBody.MultiTLV {
+		curNode = globalstruct.TerminalInfo{ //支持连接应当在content内容中附带，默认不支持
+			TerminalName: curTLV.TLVPayload.DevMac,
+			TerminalMac:  curTLV.TLVPayload.DevMac,
+			GwMac:        jsonInfo.MessageBody.GwMac,
+			IotModuleId:  jsonInfo.MessageBody.ModuleID,
+			RSSI:         int8(rssi),
+			TimeStamp:    time.Now(),
 		}
-		globalredis.RedisCache.HSet(ctx, globalconstants.BleDevInfoCachePrefix, jsoninfo.MessageAppBody.TLV.TLVPayload.DevMac, devCacheByte) //刷新或重新键入
-	} else {
-		devCacheByte, err = globalmemo.BleFreeCacheDevInfo.Get([]byte(jsoninfo.MessageAppBody.TLV.TLVPayload.DevMac))
-		if err != nil {
-			devInfo = globalstruct.TerminalInfo{ //支持连接应当在content内容中附带，默认不支持
-				TerminalName: jsoninfo.MessageAppBody.TLV.TLVPayload.DevMac,
-				TerminalMac:  jsoninfo.MessageAppBody.TLV.TLVPayload.DevMac,
-				GwMac:        jsoninfo.MessageBody.GwMac,
-				IotModuleId:  uint16(moduleId),
-				RSSI:         int8(rssi),
-				TimeStamp:    time.Now(),
-			}
-			devCacheByte, err = json.Marshal(devInfo)
-			if err != nil {
-				globallogger.Log.Errorf("<procBleBoardCast> DevEui %s the memo msg can't compress data %v\n", devEui, err)
-				return
-			}
+		gwInfo, ok := globalmemo.MemoCacheDownPriority.Get(devMac)
+		if !ok {
+			tempGwMap := make(map[string]globalstruct.TerminalInfo)
+			tempGwMap[secondCacheKey] = curNode
 		} else {
-			err = json.Unmarshal(devCacheByte, &devInfo)
-			if err != nil {
-				globallogger.Log.Errorf("<procBleBoardCast> DevEui %s the memo msg can't resolve %v\n", devEui, err)
-				return
-			}
-			devInfo.TimeStamp = time.Now()
-			devCacheByte, err = json.Marshal(devInfo)
-			if err != nil {
-				globallogger.Log.Errorf("<procBleBoardCast> DevEui %s the memo msg can't resolve data %v\n", devEui, err)
-				return
+			var (
+				pastNode globalstruct.TerminalInfo
+				exist    bool
+			)
+			if pastNode, exist = gwInfo.(map[string]globalstruct.TerminalInfo)[secondCacheKey]; !exist {
+				gwInfo.(map[string]globalstruct.TerminalInfo)[secondCacheKey] = curNode
+				globalmemo.MemoCacheDownPriority.Set(devMac, gwInfo)
+			} else {
+				if pastNode.RSSI < curNode.RSSI {
+					gwInfo.(map[string]globalstruct.TerminalInfo)[secondCacheKey] = curNode
+					globalmemo.MemoCacheDownPriority.Set(devMac, gwInfo)
+				}
 			}
 		}
-		globalmemo.BleFreeCacheDevInfo.Set([]byte(jsoninfo.MessageAppBody.TLV.TLVPayload.DevMac), devCacheByte, 0) //刷新和写入
+		//分析解析后的内容0102则开启连接
+		if curTLV.TLVPayload.NoticeContent.Data.AdData.CompData.MsgType == "0102" {
+			gwInfo, _ := globalmemo.MemoCacheDownPriority.Get(devMac)
+			priorityNode := globalstruct.TerminalInfo{
+				RSSI: -128,
+			}
+			for _, node := range gwInfo.(map[string]globalstruct.TerminalInfo) {
+				if node.RSSI > priorityNode.RSSI {
+					priorityNode = node
+				}
+			}
+			err := ConnectBleDev(ctx, priorityNode)
+			if err != nil {
+				globallogger.Log.Errorf("<procBleBoardCast> deal dev connect fail , error is %v\n", err)
+			}
+		}
 	}
+}
+
+func procBleConfirm(ctx context.Context, jsonInfo packets.JsonUdpInfo, devEui string) {
+	globallogger.Log.Infof("<procBleConfirm> DevEui %s start deal ble confirm message, the app FrameSN: %v\n", devEui, jsonInfo.MessageAppHeader.SN)
 }
 
 //处理应答信息
@@ -252,6 +233,10 @@ func procBleResponse(ctx context.Context, jsonInfo packets.JsonUdpInfo, devEui s
 		procBleMainServiceResponse(ctx, jsonInfo, devEui)
 	case packets.TLVCharRespMsg:
 		procBleCharFindResponse(ctx, jsonInfo, devEui)
+	case packets.TLVMainServiceByUUIDRespMsg:
+		procBleUUIDServiceResponse(ctx, jsonInfo, devEui)
+	case packets.TLVCharConfRespMsg:
+		procBleCharacterConfResponse(ctx, jsonInfo, devEui)
 	default:
 		globallogger.Log.Errorf("<procBleResponse>: Ble DevEui:%s received unrecognized  message type%s:\n", devEui, jsonInfo.MessageAppHeader.Type)
 	}
@@ -259,68 +244,39 @@ func procBleResponse(ctx context.Context, jsonInfo packets.JsonUdpInfo, devEui s
 
 //处理连接应答
 //处理应答需要pop数据
-//MTU交换、PHY协商操作,暂时省略
+// 连接成功前检测该消息是否超时
+
 func procBleConnResponse(ctx context.Context, jsonInfo packets.JsonUdpInfo, devEui string) {
 	globallogger.Log.Infof("<procBleConnResponse> DevEui %s start deal ble connect response message\n", devEui)
-	if jsonInfo.MessageAppBody.ErrorCode != packets.Success {
-		globallogger.Log.Errorf("<procBleConnResponse> DevEui %s has an error %v\n", devEui, packets.GetResult(jsonInfo.MessageAppBody.ErrorCode, packets.English).String())
-		globalconstants.ConnectionInfoChan <- globalstruct.ResultMessage{Code: globalconstants.HTTP_CODE_ERROR, Message: packets.GetResult(jsonInfo.MessageAppBody.ErrorCode, packets.Chinese).String()}
-		return
-	}
-	curSN, _ := strconv.ParseInt(jsonInfo.MessageAppHeader.SN, 16, 16)
-	if CheckUpMessageFrame(ctx, jsonInfo.MessageAppBody.TLV.TLVPayload.DevMac, int(curSN)) != globalconstants.TERMINAL_CORRECT {
-		globallogger.Log.Errorf("<procBleConnResponse> DevEui %s frame ")
-		return //消息响应校对，若校准正确则继续执行，否则抛出
-	}
-	var (
-		terminal globalstruct.TerminalInfo
-		strInfo  string
-		byteInfo []byte
-		err      error
-	)
-	if config.C.General.UseRedis {
-		strInfo, err = globalredis.RedisCache.HGet(ctx, globalconstants.BleDevInfoCachePrefix, jsonInfo.MessageAppBody.TLV.TLVPayload.DevMac).Result()
+	if DealWithResponseBle(ctx, jsonInfo.MessageHeader.LinkMsgFrameSN, jsonInfo.MessageAppHeader.SN, "procBleConnResponse", jsonInfo.MessageAppBody.ErrorCode, devEui) {
+		connDevInfo := globalstruct.TerminalInfo{
+			TerminalMac:   jsonInfo.MessageAppBody.TLV.TLVPayload.DevMac,
+			GwMac:         jsonInfo.MessageBody.GwMac,
+			IotModuleId:   jsonInfo.MessageBody.ModuleID,
+			ConnectStatus: jsonInfo.MessageAppBody.TLV.TLVPayload.ConnStatus,
+			ConnHandle:    jsonInfo.MessageAppBody.TLV.TLVPayload.ConnHandle,
+		}
+		connCacheKey := globalutils.CreateCacheKey(globalconstants.BleDevCacheConnPrefix, connDevInfo.ConnHandle)
+		InfoByte, err := json.Marshal(connDevInfo)
 		if err != nil {
-			if err != redis.Nil {
-				globallogger.Log.Errorf("<procBleConnResponse> DevEui %s has redis error %v\n", devEui, err)
-				globalconstants.ConnectionInfoChan <- globalstruct.ResultMessage{Code: globalconstants.HTTP_CODE_ERROR, Message: globalconstants.ERROR_CACHE_EXCEPTION}
-			} else {
-				globalconstants.ConnectionInfoChan <- globalstruct.ResultMessage{Code: globalconstants.HTTP_CODE_ERROR, Message: globalconstants.ERROR_CACHE_ABSENCE}
-			}
+			globallogger.Log.Errorf("<procBleConnResponse> DevEui %s change data has error %v\n", err)
 			return
 		}
-		byteInfo = []byte(strInfo)
-	} else {
-		byteInfo, err = globalmemo.BleFreeCacheDevInfo.Get([]byte(jsonInfo.MessageAppBody.TLV.TLVPayload.DevMac))
-		if err != nil {
-			globallogger.Log.Errorf("<procBleConnResponse> DevEui %s has cache error %v\n", devEui, err)
-			globalconstants.ConnectionInfoChan <- globalstruct.ResultMessage{Code: globalconstants.HTTP_CODE_ERROR, Message: globalconstants.ERROR_CACHE_ABSENCE}
-			return
+		if config.C.General.UseRedis {
+			globalredis.RedisCache.Set(ctx, connCacheKey, InfoByte, 0)
+		} else {
+			globalmemo.BleFreeCacheDevConnInfo.Set([]byte(connCacheKey), InfoByte, 0)
 		}
+		//推送连接结果？
+		/* mqtt 消息推送*/
+
+		//开始主服务发现
+		err = SearchMainService(ctx, connDevInfo)
+		if err != nil {
+			globallogger.Log.Errorf("<procBleConnResponse> has error %v\n", err)
+		}
+		//
 	}
-	err = json.Unmarshal(byteInfo, &terminal)
-	if err != nil {
-		globallogger.Log.Errorf("<procBleConnResponse> DevEui %s has data change error %v\n", devEui, err)
-		globalconstants.ConnectionInfoChan <- globalstruct.ResultMessage{Code: globalconstants.HTTP_CODE_ERROR, Message: globalconstants.ERROR_DATA_CHANGE}
-		return
-	}
-	connStatu, err1 := strconv.ParseInt(jsonInfo.MessageAppBody.TLV.TLVPayload.ConnStatus, 16, 8)
-	if err1 != nil {
-		globallogger.Log.Errorf("<procBleConnResponse> DevEui %s conn data change error %v\n", devEui, err1)
-		return
-	}
-	terminal.ConnectStatus = uint8(connStatu)
-	cacheInfo, err2 := json.Marshal(terminal)
-	if err2 != nil {
-		globallogger.Log.Errorf("<procBleConnResponse> DevEui %s data convert json error %v\n", devEui, err2)
-		return
-	}
-	if config.C.General.UseRedis { //此处不处理错误
-		globalredis.RedisCache.HSet(ctx, globalconstants.BleDevInfoCachePrefix, jsonInfo.MessageAppBody.TLV.TLVPayload.DevMac, cacheInfo)
-	} else {
-		globalmemo.BleFreeCacheDevInfo.Set([]byte(jsonInfo.MessageAppBody.TLV.TLVPayload.DevMac), cacheInfo, 0)
-	}
-	globalconstants.ConnectionInfoChan <- globalstruct.ResultMessage{Code: globalconstants.HTTP_CODE_SUCCESS, Message: globalconstants.HTTP_MESSAGE_SUCESS}
 }
 
 //处理扫描应答
@@ -348,16 +304,17 @@ func procScanResponse(ctx context.Context, jsonInfo packets.JsonUdpInfo, devEui 
 //处理主服务报文应答, 这个deveui应当描述的是设备mac
 //主服务先存缓存，然后再存数据库， 查看缓存中的信息是否发生更改，更改则清空数据库相关内容，重新写入
 //自身缓存则多加一级: 是否为主服务放置在最后
+//这一步之前需要将所有的信息处理完成后才进行后续操作
 func procBleMainServiceResponse(ctx context.Context, jsonInfo packets.JsonUdpInfo, devEui string) {
 	globallogger.Log.Infof("<procBleMainServiceResponse> DevEui %s start deal ble mainservice response message\n", devEui)
 	var err error
 	if DealWithResponseBle(ctx, jsonInfo.MessageHeader.LinkMsgFrameSN, jsonInfo.MessageAppHeader.SN, "procBleMainServiceResponse", jsonInfo.MessageAppBody.ErrorCode, devEui) {
-		tempServiceHandle := make([]string, 0)
+		serviceUUIDWithHandle := make(map[string]string, 0)
 		if config.C.General.UseRedis {
 			pipe := globalredis.RedisCache.Pipeline()
 			for _, serviceTLV := range jsonInfo.MessageAppBody.TLV.TLVPayload.TLVReserve {
-				tempServiceHandle = append(tempServiceHandle, serviceTLV.TLVPayload.ServiceHandle)
-				pipe.HSet(ctx, devEui+globalconstants.DEV_SERVICE, serviceTLV.TLVPayload.ServiceHandle, serviceTLV.TLVPayload.Primary)
+				serviceUUIDWithHandle[serviceTLV.TLVPayload.ServiceUUID] = serviceTLV.TLVPayload.ServiceHandle
+				pipe.HSet(ctx, globalutils.CreateCacheKey(globalconstants.DEV_SERVICE, devEui), serviceTLV.TLVPayload.ServiceHandle, serviceTLV.TLVPayload.Primary)
 			}
 			_, err = pipe.Exec(ctx)
 			if err != nil {
@@ -368,18 +325,49 @@ func procBleMainServiceResponse(ctx context.Context, jsonInfo packets.JsonUdpInf
 			serviceMap := make(map[string]string)
 			for _, serviceTLV := range jsonInfo.MessageAppBody.TLV.TLVPayload.TLVReserve {
 				serviceMap[serviceTLV.TLVPayload.ServiceHandle] = serviceTLV.TLVPayload.Primary
-				tempServiceHandle = append(tempServiceHandle, serviceTLV.TLVPayload.ServiceHandle)
+				serviceUUIDWithHandle[serviceTLV.TLVPayload.ServiceUUID] = serviceTLV.TLVPayload.ServiceHandle
 				globalmemo.MemoCacheService.Set(devEui+globalconstants.DEV_SERVICE, serviceMap)
 			}
 		}
-		if len(tempServiceHandle) != 0 {
-			sort.Strings(tempServiceHandle) //防止应答乱序
-			err = ResumeCharacterFind(ctx, devEui, tempServiceHandle[0], tempServiceHandle[len(tempServiceHandle)-1])
-			if err != nil {
-				globallogger.Log.Errorf("<procBleMainServiceResponse> DevEui %s has error %v \n", devEui, err)
+		if len(serviceUUIDWithHandle) != 0 {
+			//sort.Strings(tempServiceHandle) //防止应答乱序
+			//err = ResumeCharacterFind(ctx, devEui, tempServiceHandle[0], tempServiceHandle[len(tempServiceHandle)-1])
+			var terminalInfo globalstruct.TerminalInfo
+			cacheKey := globalutils.CreateCacheKey(globalconstants.BleDevCacheConnPrefix, devEui)
+			if config.C.General.UseRedis {
+				strInfo, err1 := globalredis.RedisCache.Get(ctx, cacheKey).Result()
+				if err1 != nil {
+					globallogger.Log.Errorf("<procBleMainServiceResponse> DevEui %s loss connect dev infomation\n", devEui)
+					return
+				}
+				err1 = json.Unmarshal([]byte(strInfo), &terminalInfo)
+				if err1 != nil {
+					globallogger.Log.Errorf("<procBleMainServiceResponse> DevEui %s connect redis infomation has error %v\n", devEui, err1)
+					return
+				}
+			} else {
+				byteInfo, err1 := globalmemo.BleFreeCacheDevConnInfo.Get([]byte(cacheKey))
+				if err1 != nil {
+					globallogger.Log.Errorf("<procBleMainServiceResponse> DevEui %s loss connect dev infomation\n", devEui)
+					return
+				}
+				err1 = json.Unmarshal(byteInfo, &terminalInfo)
+				if err1 != nil {
+					globallogger.Log.Errorf("<procBleMainServiceResponse> DevEui %s connect memo infomation has error %v\n", devEui, err1)
+					return
+				}
+			}
+			for uuid, _ := range serviceUUIDWithHandle {
+				if uuid == "0001" {
+					err1 := SearchMainServiceUUID(ctx, terminalInfo, uuid)
+					if err1 != nil {
+						globallogger.Log.Errorf("<procBleMainServiceResponse> DevEui %s search main service error %v\n", err1)
+					}
+					break //可以及时退出
+				}
 			}
 		} else {
-			globallogger.Log.Warnln("<procBleMainServiceResponse> not have service handle")
+			globallogger.Log.Warnln("<procBleMainServiceResponse> not have right service")
 		}
 	}
 }
@@ -406,12 +394,209 @@ func procBleCharFindResponse(ctx context.Context, jsonInfo packets.JsonUdpInfo, 
 		} else {
 			if len(jsonInfo.MessageAppBody.TLV.TLVPayload.TLVReserve) != 0 {
 				characterMap := make(map[string]int)
-				cacheKey := globalutils.CreateCacheKey(devEui, globalconstants.DEV_CHARACTER,  jsonInfo.MessageAppBody.TLV.TLVPayload.TLVReserve[0].TLVPayload.ServiceHandle)
+				cacheKey := globalutils.CreateCacheKey(devEui, globalconstants.DEV_CHARACTER, jsonInfo.MessageAppBody.TLV.TLVPayload.TLVReserve[0].TLVPayload.ServiceHandle)
 				for _, characterTLV := range jsonInfo.MessageAppBody.TLV.TLVPayload.TLVReserve {
 					characterMap[characterTLV.TLVPayload.CharHandle] = globalconstants.DEV_CHARACTER_DEFAULT
 				}
 				globalmemo.MemoCacheServiceForChar.Set(cacheKey, characterMap)
 			}
 		}
+	}
+}
+
+//针对特定UUID的缓存生成
+//服务key(devmac + service)
+//默认一个uuid服务
+func procBleUUIDServiceResponse(ctx context.Context, jsonInfo packets.JsonUdpInfo, devEui string) {
+	globallogger.Log.Infof("<procBleUUIDServiceResponse> DevEui %s start deal ble uuid service response message\n", devEui)
+	var (
+		err           error
+		reserveLen    = len(jsonInfo.MessageAppBody.TLV.TLVPayload.TLVReserve)
+		nusServiceKey string
+	)
+	if DealWithResponseBle(ctx, jsonInfo.MessageHeader.LinkMsgFrameSN, jsonInfo.MessageAppHeader.SN, "procBleUUIDServiceResponse", jsonInfo.MessageAppBody.ErrorCode, devEui) &&
+		reserveLen > 0 {
+		allMessageTLV := make(map[string]map[string]globalstruct.ServiceCharacterNode)
+		uuidForhandleSvc := make(map[string]string) //handle对应uuid
+		uuidForhandleChar := make(map[string]string)
+		serviceTLV, characterTLV, characterDesp := make([]packets.TLV, 0), make([]packets.TLV, 0), make([]packets.TLV, 0)
+		for _, curTLV := range jsonInfo.MessageAppBody.TLV.TLVPayload.TLVReserve {
+			if curTLV.TLVMsgType == packets.TLVServiceMsg {
+				serviceTLV = append(serviceTLV, curTLV)
+				uuidForhandleSvc[curTLV.TLVPayload.ServiceHandle] = curTLV.TLVPayload.ServiceUUID
+			} else if curTLV.TLVMsgType == packets.TLVCharacteristicMsg {
+				characterTLV = append(characterTLV, curTLV)
+				uuidForhandleChar[curTLV.TLVPayload.CharHandle] = curTLV.TLVPayload.CharacterUUID
+			} else {
+				characterDesp = append(characterDesp, curTLV)
+			}
+		}
+		for _, service := range serviceTLV {
+			cacheKey := globalutils.CreateCacheKey(jsonInfo.MessageAppBody.TLV.TLVPayload.DevMac, service.TLVPayload.ServiceUUID, service.TLVPayload.ServiceHandle)
+			allMessageTLV[cacheKey] = make(map[string]globalstruct.ServiceCharacterNode)
+		}
+		for _, character := range characterTLV {
+			serviceKey := globalutils.CreateCacheKey(jsonInfo.MessageAppBody.TLV.TLVPayload.DevMac, uuidForhandleSvc[character.TLVPayload.ServiceHandle], character.TLVPayload.ServiceHandle)
+			nusServiceKey = serviceKey //填充
+			cacheKey := globalutils.CreateCacheKey(character.TLVPayload.CharacterUUID, character.TLVPayload.CharHandle)
+			allMessageTLV[serviceKey][cacheKey] = globalstruct.ServiceCharacterNode{
+				CharUUID:        character.TLVPayload.CharacterUUID,
+				CharacterHandle: character.TLVPayload.CharHandle,
+				Properties:      character.TLVPayload.Properties,
+			}
+		}
+		for _, charDesp := range characterDesp {
+			serviceKey := globalutils.CreateCacheKey(jsonInfo.MessageAppBody.TLV.TLVPayload.DevMac, uuidForhandleSvc[charDesp.TLVPayload.ServiceHandle], charDesp.TLVPayload.ServiceHandle)
+			characterKey := globalutils.CreateCacheKey(charDesp.TLVPayload.CharacterUUID, charDesp.TLVPayload.CharHandle)
+			node := allMessageTLV[serviceKey][characterKey]
+			node.CCCDHanle = charDesp.TLVPayload.DescriptorHandle
+			allMessageTLV[serviceKey][characterKey] = node
+		}
+		if config.C.General.UseRedis { //覆盖式存储
+			pipe := globalredis.RedisCache.Pipeline()
+			for svcKey, charMap := range allMessageTLV {
+				for charKey, Node := range charMap {
+					nodeByte, err1 := json.Marshal(Node)
+					if err1 != nil {
+						globallogger.Log.Errorf("<procBleUUIDServiceResponse> restore msg has error %v\n", err1)
+						continue
+					}
+					pipe.HSet(ctx, svcKey, charKey, nodeByte)
+				}
+			}
+			_, err = pipe.Exec(ctx)
+			if err != nil {
+				globallogger.Log.Errorf("<procBleUUIDServiceResponse> redis has error %v\n", err)
+				return
+			}
+		} else {
+			for svcKey, charMap := range allMessageTLV {
+				globalmemo.MemoCacheServiceForChar.Set(svcKey, charMap)
+			}
+		}
+		//发起特征值配置请求
+		var terminalInfo globalstruct.TerminalInfo
+		cacheKey := globalutils.CreateCacheKey(globalconstants.BleDevCacheConnPrefix, devEui)
+		if config.C.General.UseRedis {
+			strInfo, err1 := globalredis.RedisCache.Get(ctx, cacheKey).Result()
+			if err1 != nil {
+				globallogger.Log.Errorf("<procBleUUIDServiceResponse> DevEui %s loss connect dev infomation\n", devEui)
+				return
+			}
+			err1 = json.Unmarshal([]byte(strInfo), &terminalInfo)
+			if err1 != nil {
+				globallogger.Log.Errorf("<procBleUUIDServiceResponse> DevEui %s connect redis infomation has error %v\n", devEui, err1)
+				return
+			}
+		} else {
+			byteInfo, err1 := globalmemo.BleFreeCacheDevConnInfo.Get([]byte(cacheKey))
+			if err1 != nil {
+				globallogger.Log.Errorf("<procBleUUIDServiceResponse> DevEui %s loss connect dev infomation\n", devEui)
+				return
+			}
+			err1 = json.Unmarshal(byteInfo, &terminalInfo)
+			if err1 != nil {
+				globallogger.Log.Errorf("<procBleUUIDServiceResponse> DevEui %s connect memo infomation has error %v\n", devEui, err1)
+				return
+			}
+		}
+		//针对0001
+		if strings.Contains(nusServiceKey, "0001") {
+			err1 := CharacterConfig(ctx, terminalInfo, allMessageTLV[nusServiceKey], nusServiceKey)
+			if err1 != nil {
+				globallogger.Log.Errorf("<procBleUUIDServiceResponse> DevEui %s character config has error %v\n", devEui, err1)
+			}
+		}
+	}
+}
+
+//处理特征配置应答
+//将里面的特征值参数配置给改过来 修改某个服务中的特定特征值改变
+//是否需要推送消息？
+func procBleCharacterConfResponse(ctx context.Context, jsonInfo packets.JsonUdpInfo, devEui string) {
+	globallogger.Log.Infof("<procBleCharacterConfResponse> DevEui %s start deal ble uuid service response message\n", devEui)
+	if DealWithResponseBle(ctx, jsonInfo.MessageHeader.LinkMsgFrameSN, jsonInfo.MessageAppHeader.SN, "procBleCharacterConfResponse", jsonInfo.MessageAppBody.ErrorCode, devEui) {
+		serviceKeyByte, err := globalmemo.BleFreeCacheUpDown.Get([]byte(jsonInfo.MessageAppBody.TLV.TLVPayload.DevMac + jsonInfo.MessageAppHeader.SN))
+		serviceKey := string(serviceKeyByte)
+		if err != nil {
+			globallogger.Log.Errorf("<procBleCharacterConfResponse> DevEui %s can't find right service information, please check it\n", devEui)
+			return
+		}
+		if config.C.General.UseRedis {
+			charMap, err := globalredis.RedisCache.HGetAll(ctx, serviceKey).Result()
+			if err != nil {
+				globallogger.Log.Errorf("<procBleCharacterConfResponse> DevEui %s can't find right character information (redis), please check it\n", devEui)
+				return
+			}
+			for key, value := range charMap {
+				var tempNode globalstruct.ServiceCharacterNode
+				err = json.Unmarshal([]byte(value), &tempNode)
+				if err != nil {
+					globallogger.Log.Errorf("<procBleCharacterConfResponse> DevEui %s can't resolve redis data for character, please check it\n", devEui)
+					return
+				}
+				if tempNode.CharacterHandle == jsonInfo.MessageAppBody.TLV.TLVPayload.CharHandle &&
+					tempNode.CCCDHanle == jsonInfo.MessageAppBody.TLV.TLVPayload.CCCDHandle {
+					tempNode.CCCDHanleValue = jsonInfo.MessageAppBody.TLV.TLVPayload.CCCDHandleValue
+					byteNode, _ := json.Marshal(tempNode)
+					_, err = globalredis.RedisCache.HSet(ctx, serviceKey, key, byteNode).Result()
+					if err != nil {
+						globallogger.Log.Errorf("<procBleCharacterConfResponse> DevEui %s redis has error, please check it\n", devEui)
+						return
+					}
+					break
+				}
+			}
+		} else {
+			tempMap := make(map[string]globalstruct.ServiceCharacterNode)
+			charMap, ok := globalmemo.MemoCacheServiceForChar.Get(serviceKey)
+			if !ok {
+				globallogger.Log.Errorf("<procBleCharacterConfResponse> DevEui %s can't find right character information (memo), please check it\n", devEui)
+				return
+			}
+			for key, node := range charMap.(map[string]globalstruct.ServiceCharacterNode) {
+				if node.CharacterHandle == jsonInfo.MessageAppBody.TLV.TLVPayload.CharHandle &&
+					node.CCCDHanle == jsonInfo.MessageAppBody.TLV.TLVPayload.CCCDHandle {
+					node.CCCDHanleValue = jsonInfo.MessageAppBody.TLV.TLVPayload.CCCDHandleValue
+				} else {
+					tempMap[key] = node
+				}
+			}
+			globalmemo.MemoCacheServiceForChar.Set(serviceKey, tempMap)
+		}
+		//后续是否需要推送消息
+		/*MQTT消息推送*/
+	}
+}
+
+//处理特征通告， 查找特征值得到翠英
+func procBleCharacteristicNotice(ctx context.Context, jsonInfo packets.JsonUdpInfo, devEui string) {
+	globallogger.Log.Infof("<procBleCharacteristicNotice> DevEui %s start deal ble character response message\n", devEui)
+	//通告消息无需校对
+
+	/*将消息封装为mqtt形式，
+	数据信息计算
+	上行发送*/
+	jsonInfo.MessageAppBody.ErrorCode = packets.Success
+	jsonInfo.MessageAppBody.TLV = packets.TLV{}
+	jsonInfo.MessageAppHeader.OpType = packets.Response
+	jsonInfo.MessageHeader.OpType = packets.Response
+	byteToSend := EnCodeForDownUdpMessage(jsonInfo)
+	SendDownMessage(byteToSend, jsonInfo.MessageBody.GwMac+jsonInfo.MessageBody.ModuleID, jsonInfo.MessageAppBody.TLV.TLVPayload.DevMac)
+}
+
+//处理蓝牙终端断开连接情况
+//连接只做了内容
+func procBleTerminalDisConnect(ctx context.Context, jsonInfo packets.JsonUdpInfo, devEui string) {
+	globallogger.Log.Infof("<procBleTerminalDisConnect> DevEui %s start deal ble terminal disconnect event message\n", devEui)
+	for _, curTLV := range jsonInfo.MessageAppBody.MultiTLV {
+		connCacheKey := globalutils.CreateCacheKey(globalconstants.BleDevCacheConnPrefix, curTLV.TLVPayload.ConnHandle)
+		_, err := globalmemo.BleFreeCacheDevConnInfo.Get([]byte(connCacheKey))
+		if err != nil {
+			globallogger.Log.Errorf("<procBleTerminalDisConnect> DevEui %s has already disconnect", curTLV.TLVPayload.DevMac)
+			continue
+		}
+		/* 发送mqtt通知， 并清空缓存*/
+		globalmemo.BleFreeCacheDevConnInfo.Del([]byte(connCacheKey))
 	}
 }

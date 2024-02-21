@@ -92,10 +92,16 @@ func procGatewayMsg(ctx context.Context, jsonInfo packets.JsonUdpInfo, devEui st
 func procTerminalMsg(ctx context.Context, jsonInfo packets.JsonUdpInfo, devEui string) {
 	globallogger.Log.Infof("<procGatewayMsg> : terminal %s start proc msg\n", devEui)
 	switch jsonInfo.MessageHeader.LinkMsgType {
+	case packets.BleConfirm:
+		procBleConfirm(ctx, jsonInfo, devEui)
 	case packets.BleResponse:
 		procBleResponse(ctx, jsonInfo, devEui)
 	case packets.BleBoardcast:
 		procBleBoardCast(ctx, jsonInfo, devEui)
+	case packets.BleCharacteristicNotice:
+		procBleCharacteristicNotice(ctx, jsonInfo, devEui)
+	case packets.BleTerminalEvent:
+		procBleTerminalDisConnect(ctx, jsonInfo,devEui)
 	default:
 		globallogger.Log.Errorf("<procTerminalMsg>: DevEui:%s received unrecognized  message type%s:\n", devEui, jsonInfo.MessageHeader.LinkMsgType)
 	}
